@@ -18,58 +18,72 @@ interface EditLimitStatus {
 
 const CACHE_DURATION = 30000; // 30 seconds
 
+// disable quota checks
+const DISABLE_QUOTA_CHECKS = true;
+
 export function useEditLimitCache() {
   const [status, setStatus] = useState<EditLimitStatus>({
     canEdit: true,
     editCount: 0,
-    limit: FREE_DAILY_EDIT_LIMIT, // Default to free user daily limit
+    limit: DISABLE_QUOTA_CHECKS ? Infinity : FREE_DAILY_EDIT_LIMIT,
     isLoading: false,
     lastChecked: null,
   });
 
   const fetchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
-  const fetchLimitStatus = useCallback(async (force: boolean) => {
-    const now = Date.now();
-    
-    // Use cache if recent and not forced
-    if (!force && status.lastChecked && (now - status.lastChecked) < CACHE_DURATION) {
-      return status;
-    }
-
-    setStatus(prev => ({ ...prev, isLoading: true }));
-
-    try {
-      const response = await fetch('/api/track-edit', {
-        method: 'GET', // GET for checking status only
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch edit limits');
+  const fetchLimitStatus = useCallback(
+    async (force: boolean) => {
+      if (DISABLE_QUOTA_CHECKS) {
+        return { ...status, canEdit: true };
       }
 
-      const data = await response.json();
+      const now = Date.now();
 
-      const newStatus = {
-        canEdit: data.canEdit,
-        editCount: data.editCount || 0,
-        limit: data.limit || 100,
-        isLoading: false,
-        lastChecked: now,
-      };
+      // Use cache if recent and not forced
+      if (
+        !force &&
+        status.lastChecked &&
+        now - status.lastChecked < CACHE_DURATION
+      ) {
+        return status;
+      }
 
-      setStatus(newStatus);
-      return newStatus;
-    } catch (error) {
-      console.error('Error fetching edit limits:', error);
-      setStatus(prev => ({ ...prev, isLoading: false }));
-      return status;
-    }
-  }, [status]);
+      setStatus((prev) => ({ ...prev, isLoading: true }));
+
+      try {
+        const response = await fetch('/api/track-edit', {
+          method: 'GET', // GET for checking status only
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch edit limits');
+        }
+
+        const data = await response.json();
+
+        const newStatus = {
+          canEdit: data.canEdit,
+          editCount: data.editCount || 0,
+          limit: data.limit || 100,
+          isLoading: false,
+          lastChecked: now,
+        };
+
+        setStatus(newStatus);
+        return newStatus;
+      } catch (error) {
+        console.error('Error fetching edit limits:', error);
+        setStatus((prev) => ({ ...prev, isLoading: false }));
+        return status;
+      }
+    },
+    [status]
+  );
 
   const trackEdit = useCallback(async () => {
     // Optimistically increment local count
-    setStatus(prev => ({
+    setStatus((prev) => ({
       ...prev,
       editCount: prev.editCount + 1,
       canEdit: prev.editCount + 1 < prev.limit,
@@ -79,7 +93,7 @@ export function useEditLimitCache() {
     fetch('/api/track-edit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-    }).catch(err => console.error('Failed to track edit:', err));
+    }).catch((err) => console.error('Failed to track edit:', err));
 
     // Refresh status after a short delay
     if (fetchTimeoutRef.current) {
@@ -114,4 +128,4 @@ export function useEditLimitCache() {
     trackEdit,
     refreshStatus: () => fetchLimitStatus(true),
   };
-} 
+}

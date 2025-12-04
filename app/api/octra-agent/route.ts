@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { hasUnlimitedEdits } from '@/lib/paywall';
-import type { TablesInsert } from '@/database.types';
 
 // Import helper modules
 import { createSSEHeaders } from '@/lib/octra-agent/stream-handling';
-import { FREE_DAILY_EDIT_LIMIT, PRO_MONTHLY_EDIT_LIMIT } from '@/data/constants';
+
+// Disable quota checks
+const DISABLE_QUOTA_CHECKS = true;
 
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
@@ -23,152 +23,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Check if user has unlimited edits (whitelisted)
-    const hasUnlimited = hasUnlimitedEdits(user.email);
-
-    // If not unlimited, check usage limits
-    if (!hasUnlimited) {
-      const usageRes = await supabase
-        .from('user_usage')
-        .select('edit_count, monthly_edit_count, is_pro, daily_reset_date, monthly_reset_date')
-        .eq('user_id', user.id)
-        .single();
-      
-      let usageData = usageRes.data as {
-        edit_count: number;
-        monthly_edit_count: number;
-        is_pro: boolean;
-        daily_reset_date: string | null;
-        monthly_reset_date: string | null;
-      } | null;
-      const usageError = usageRes.error;
-
-      // If no usage record exists, create one with default free tier limits
-      // This prevents new users from bypassing quota checks entirely
-      if (usageError && usageError.code === 'PGRST116') {
-        console.log('[Security] Creating user_usage record for new user:', user.id);
-        
-        const newUsagePayload: TablesInsert<'user_usage'> = {
-          user_id: user.id,
-          edit_count: 0,
-          monthly_edit_count: 0,
-          monthly_reset_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          is_pro: false,
-          subscription_status: 'inactive',
-        };
-
-        const newUsageRes = await (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          supabase.from('user_usage') as any
-        )
-          .insert(newUsagePayload)
-          .select('edit_count, monthly_edit_count, daily_reset_date, monthly_reset_date, is_pro')
-          .single();
-        
-        if (newUsageRes.error) {
-          console.error('[Security] Failed to create usage record:', newUsageRes.error);
-          return NextResponse.json(
-            { error: 'Failed to initialize usage tracking' },
-            { status: 500 }
-          );
-        }
-        
-        usageData = newUsageRes.data as {
-          edit_count: number;
-          monthly_edit_count: number;
-          is_pro: boolean;
-          daily_reset_date: string | null;
-          monthly_reset_date: string | null;
-        } | null;
-      } else if (usageError) {
-        console.error('[Security] Failed to fetch usage data:', usageError);
-        return NextResponse.json(
-          { error: 'Failed to check usage limits' },
-          { status: 500 }
-        );
-      }
-
-      // Now usageData is guaranteed to exist, perform limit checks
-      if (usageData) {
-        const isPro = usageData.is_pro;
-        const editCount = usageData.edit_count || 0;
-        const monthlyEditCount = usageData.monthly_edit_count || 0;
-
-        // Check if daily reset is needed for free users
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const dailyResetDate = usageData.daily_reset_date 
-          ? new Date(usageData.daily_reset_date + 'T00:00:00')
-          : null;
-        const needsDailyReset = !isPro && dailyResetDate && today > dailyResetDate;
-
-        // Check limits
-        const hasReachedLimit = isPro
-          ? monthlyEditCount >= PRO_MONTHLY_EDIT_LIMIT
-          : (!needsDailyReset && editCount >= FREE_DAILY_EDIT_LIMIT);
-
-        if (hasReachedLimit) {
-          const limitMessage = isPro
-            ? `You've reached your monthly limit of ${PRO_MONTHLY_EDIT_LIMIT} edits. Your limit will reset on your billing date.`
-            : `You've reached your daily limit of ${FREE_DAILY_EDIT_LIMIT} edits. Upgrade to Pro for ${PRO_MONTHLY_EDIT_LIMIT} edits per month!`;
-
-          return NextResponse.json(
-            { error: limitMessage, limitReached: true },
-            { status: 429 }
-          );
-        }
-      }
-    }
-
-    if (!hasUnlimited) {
-      let incrementResult;
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await supabase.rpc('increment_edit_count', { p_user_id: user.id } as any);
-        
-        if (error) {
-          console.error('Failed to increment edit count:', error);
-          return NextResponse.json(
-            { error: 'Failed to update usage tracking' },
-            { status: 500 }
-          );
-        }
-        
-        incrementResult = data as boolean;
-      } catch (incrementError) {
-        console.error('Exception incrementing edit count:', incrementError);
-        return NextResponse.json(
-          { error: 'Failed to update usage tracking' },
-          { status: 500 }
-        );
-      }
-
-      // If increment returned false, the limit was reached between our check and the increment (concurrent requests).
-      // Deny the request to prevent over-quota usage.
-      if (!incrementResult) {
-        console.warn(`[Security] Race condition detected: increment denied for user ${user.id}`);
-        
-        // Re-fetch current usage to provide accurate error message
-        const usageRes = await supabase
-          .from('user_usage')
-          .select('is_pro, edit_count, monthly_edit_count')
-          .eq('user_id', user.id)
-          .single();
-        
-        const usageData = usageRes.data as { is_pro: boolean; edit_count: number; monthly_edit_count: number } | null;
-        const isPro = usageData?.is_pro || false;
-        
-        const limitMessage = isPro
-          ? `You've reached your monthly limit of ${PRO_MONTHLY_EDIT_LIMIT} edits. Your limit will reset on your billing date.`
-          : `You've reached your daily limit of ${FREE_DAILY_EDIT_LIMIT} edits. Upgrade to Pro for ${PRO_MONTHLY_EDIT_LIMIT} edits per month!`;
-
-        return NextResponse.json(
-          { error: limitMessage, limitReached: true },
-          { status: 429 }
-        );
-      }
-    } else {
-      console.log(`[Unlimited] Skipping quota tracking for whitelisted user: ${user.email}`);
+    // Skip all quota checks when disabled
+    if (DISABLE_QUOTA_CHECKS) {
+      console.log(
+        `[Octra Proxy] Quota checks disabled, allowing request for user: ${user.email}`
+      );
     }
 
     const remoteUrl = process.env.CLAUDE_AGENT_SERVICE_URL;
@@ -199,7 +58,11 @@ export async function POST(request: Request) {
     });
 
     if (!res.ok || !res.body) {
-      console.error('[Octra Proxy] Remote server failed:', res.status, res.statusText);
+      console.error(
+        '[Octra Proxy] Remote server failed:',
+        res.status,
+        res.statusText
+      );
       return NextResponse.json(
         { error: 'Remote agent service failed', status: res.status },
         { status: 502 }
@@ -263,7 +126,10 @@ export async function POST(request: Request) {
       } catch (err) {
         // Ignore abort errors (expected when client stops)
         const error = err as Error;
-        if (error?.name === 'AbortError' || error?.constructor?.name === 'ResponseAborted') {
+        if (
+          error?.name === 'AbortError' ||
+          error?.constructor?.name === 'ResponseAborted'
+        ) {
           console.log('[Octra Proxy] Stream aborted by client');
         } else {
           console.error('[Octra Proxy] Stream error:', err);
