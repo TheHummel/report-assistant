@@ -25,7 +25,8 @@ function sseResponse(events: Array<{ event: string; data: any }>): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       for (const e of events) {
-        const payload = typeof e.data === 'string' ? e.data : JSON.stringify(e.data);
+        const payload =
+          typeof e.data === 'string' ? e.data : JSON.stringify(e.data);
         controller.enqueue(enc.encode(`event: ${e.event}\n`));
         controller.enqueue(enc.encode(`data: ${payload}\n\n`));
       }
@@ -72,7 +73,7 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     // Force route to use proxy branch and mock SSE
-    process.env.CLAUDE_AGENT_SERVICE_URL = 'https://fake-octra-agent';
+    process.env.AGENT_SERVICE_URL = 'https://fake-octra-agent';
   });
 
   it('streams edits from agent, applies Accept All semantics, compiles', async () => {
@@ -81,7 +82,10 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
     vi.mock('@/lib/supabase/server', () => ({
       createClient: async () => ({
         auth: {
-          getUser: async () => ({ data: { user: { id: 'user_1', email: 'test@example.com' } }, error: null }),
+          getUser: async () => ({
+            data: { user: { id: 'user_1', email: 'test@example.com' } },
+            error: null,
+          }),
         },
         from: () => ({
           select: () => ({
@@ -106,8 +110,17 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
     const { POST: octraRoute } = await import('@/app/api/octra-agent/route');
     // 1) Prepare a streamed SSE with propose_edits and edits payload
     const edits: LineEdit[] = [
-      { editType: 'replace', position: { line: 3 }, content: String.raw`\\title{E2E Document (Edited)}`, originalLineCount: 1 },
-      { editType: 'insert', position: { line: 8 }, content: 'Inserted from agent.' },
+      {
+        editType: 'replace',
+        position: { line: 3 },
+        content: String.raw`\\title{E2E Document (Edited)}`,
+        originalLineCount: 1,
+      },
+      {
+        editType: 'insert',
+        position: { line: 8 },
+        content: 'Inserted from agent.',
+      },
     ];
     const sse = sseResponse([
       { event: 'status', data: { state: 'started' } },
@@ -127,14 +140,21 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
     // 2) Call Octra agent route (proxied)
     const octraReq = new Request('http://localhost/api/octra-agent', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+      headers: {
+        'content-type': 'application/json',
+        accept: 'text/event-stream',
+      },
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Insert a new line and tweak title' }],
+        messages: [
+          { role: 'user', content: 'Insert a new line and tweak title' },
+        ],
         fileContent: baseTex,
       }),
     });
 
-    const octraRes = (await octraRoute(octraReq as unknown as Request)) as Response;
+    const octraRes = (await octraRoute(
+      octraReq as unknown as Request
+    )) as Response;
     expect(octraRes.status).toBe(200);
 
     // 3) Read back streamed events and extract edits
@@ -155,7 +175,11 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
         if (em && dm) {
           const event = em[1];
           let data: any;
-          try { data = JSON.parse(dm[1]); } catch { data = dm[1]; }
+          try {
+            data = JSON.parse(dm[1]);
+          } catch {
+            data = dm[1];
+          }
           received.push({ event, data });
         }
       }
@@ -174,7 +198,9 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: finalTex }),
     });
-    const compileRes = (await compileRoute(compileReq as unknown as Request)) as Response;
+    const compileRes = (await compileRoute(
+      compileReq as unknown as Request
+    )) as Response;
     const json = await compileRes.json();
 
     // Verify remote agent and compile were called
@@ -182,5 +208,3 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
     expect(json.pdf).toBeTruthy();
   });
 });
-
-

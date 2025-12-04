@@ -30,13 +30,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const remoteUrl = process.env.CLAUDE_AGENT_SERVICE_URL;
+    const remoteUrl = process.env.AGENT_SERVICE_URL;
     if (!remoteUrl) {
-      console.error('[Octra Proxy] CLAUDE_AGENT_SERVICE_URL is not configured');
+      console.error('[Octra Proxy] AGENT_SERVICE_URL is not configured');
       return NextResponse.json(
         {
           error: 'Agent service unavailable',
-          details: 'CLAUDE_AGENT_SERVICE_URL is not configured on the server',
+          details: 'AGENT_SERVICE_URL is not configured on the server',
         },
         { status: 503 }
       );
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     console.log(
-      '[Octra Proxy] Forwarding authenticated request to remote Claude Code server:',
+      '[Octra Proxy] Forwarding authenticated request to agent server:',
       remoteUrl
     );
 
