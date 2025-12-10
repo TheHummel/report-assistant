@@ -9,10 +9,8 @@ import dynamic from 'next/dynamic';
 import PDFErrorBoundary from './pdf-error-boundary';
 import type { CompilationError } from '@/types/compilation';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+// init the worker using CDN
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 // Dynamically import the PDF components with no SSR
 const DynamicPDFViewer = dynamic(

@@ -16,11 +16,8 @@ import 'react-pdf/dist/Page/TextLayer.css';
 import { CompilationError } from '@/components/latex/compilation-error';
 import type { CompilationError as CompilationErrorType } from '@/types/compilation';
 
-// Initialize the worker
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url
-).toString();
+// init the worker using CDN
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const options = {
   cMapUrl: '/cmaps/',
