@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { TablesInsert } from '@/database.types';
 import { z } from 'zod';
-import { DEFAULT_LATEX_CONTENT } from '@/data/constants';
+import { getRadiationTemplateFiles } from '@/data/radiation-template';
 
 const CreateProject = z.object({
   title: z.string().min(1, 'Project title is required').trim(),
@@ -55,40 +55,63 @@ export async function createProject(title: string) {
       throw new Error('Failed to create project');
     }
 
-    const defaultContent = DEFAULT_LATEX_CONTENT(validatedTitle);
-    const filePath = `projects/${data.id}/main.tex`;
+    // get template files for the radiation test report
+    const templateFiles = await getRadiationTemplateFiles(validatedTitle);
 
-    const { error: storageError } = await supabase.storage
-      .from('octree')
-      .upload(filePath, defaultContent, {
-        contentType: 'text/x-tex',
-        upsert: false,
-      });
+    // upload files to storage
+    for (const templateFile of templateFiles) {
+      const filePath = `projects/${data.id}/${templateFile.path}`;
 
-    if (storageError) {
-      console.error('Error uploading file to storage:', storageError);
-      throw new Error('Failed to upload file to storage');
-    }
+      const fileContent = templateFile.isBinary
+        ? Buffer.from(templateFile.content, 'base64')
+        : templateFile.content;
 
-    const { data: urlData } = supabase.storage
-      .from('octree')
-      .getPublicUrl(filePath);
+      const { error: storageError } = await supabase.storage
+        .from('octree')
+        .upload(filePath, fileContent, {
+          contentType: templateFile.contentType,
+          upsert: false,
+        });
 
-    const fileToInsert: TablesInsert<'files'> = {
-      project_id: data.id,
-      name: 'main.tex',
-      type: 'text/x-tex',
-      size: defaultContent.length,
-      url: urlData.publicUrl,
-    };
+      if (storageError) {
+        console.error(
+          `Error uploading file ${templateFile.path} to storage:`,
+          storageError
+        );
+        throw new Error(
+          `Failed to upload file ${templateFile.path} to storage`
+        );
+      }
 
-    const { error: fileError } = await (supabase.from('files') as any).insert(
-      fileToInsert
-    );
+      const { data: urlData } = supabase.storage
+        .from('octree')
+        .getPublicUrl(filePath);
 
-    if (fileError) {
-      console.error('Error creating file record:', fileError);
-      throw new Error('Failed to create file record');
+      const fileSize = templateFile.isBinary
+        ? Buffer.from(templateFile.content, 'base64').length
+        : templateFile.content.length;
+
+      const fileToInsert: TablesInsert<'files'> = {
+        project_id: data.id,
+        name: templateFile.path,
+        type: templateFile.contentType,
+        size: fileSize,
+        url: urlData.publicUrl,
+      };
+
+      const { error: fileError } = await (supabase.from('files') as any).insert(
+        fileToInsert
+      );
+
+      if (fileError) {
+        console.error(
+          `Error creating file record for ${templateFile.path}:`,
+          fileError
+        );
+        throw new Error(
+          `Failed to create file record for ${templateFile.path}`
+        );
+      }
     }
 
     revalidatePath('/');
