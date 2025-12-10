@@ -3,11 +3,17 @@ import { createClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 import { hasUnlimitedEdits } from '@/lib/paywall';
 import type { TablesInsert, TablesUpdate, Tables } from '@/database.types';
-import { FREE_DAILY_EDIT_LIMIT, PRO_MONTHLY_EDIT_LIMIT } from '@/data/constants';
+import {
+  FREE_DAILY_EDIT_LIMIT,
+  PRO_MONTHLY_EDIT_LIMIT,
+} from '@/data/constants';
 
-const stripe = new Stripe(process.env.STRIPE_PROD_SECRET_KEY!, {
-  apiVersion: '2025-02-24.acacia',
-});
+// init Stripe iff API key is provided
+const stripe = process.env.STRIPE_PROD_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_PROD_SECRET_KEY, {
+      apiVersion: '2025-02-24.acacia',
+    })
+  : null;
 
 export async function GET() {
   try {
@@ -19,10 +25,7 @@ export async function GET() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const hasUnlimitedUser = hasUnlimitedEdits(user.email);
@@ -50,14 +53,13 @@ export async function GET() {
         subscription_status: hasUnlimitedUser ? 'unlimited' : 'inactive',
       };
 
-      const { data: newUsageDataRaw, error: createError } = await (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        supabase.from('user_usage') as any
-      )
-        .insert(newUsagePayload)
-        .select('*')
-        .single();
-      
+      const { data: newUsageDataRaw, error: createError } =
+        await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.from('user_usage') as any)
+          .insert(newUsagePayload)
+          .select('*')
+          .single();
+
       const newUsageData = newUsageDataRaw as Tables<'user_usage'> | null;
       if (createError || !newUsageData) {
         console.error('Error creating user_usage record:', createError);
@@ -86,12 +88,11 @@ export async function GET() {
             .toISOString()
             .split('T')[0],
         };
-        const { error: resetError } = await (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          supabase.from('user_usage') as any
-        )
-          .update(resetPayload)
-          .eq('user_id', user.id);
+        const { error: resetError } =
+          await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from('user_usage') as any)
+            .update(resetPayload)
+            .eq('user_id', user.id);
         if (!resetError) {
           finalUsageData.monthly_edit_count = 0;
         }
@@ -113,16 +114,16 @@ export async function GET() {
             ? finalUsageData.subscription_status
             : 'unlimited',
         };
-        const { data: updatedUnlimitedDataRaw, error: unlimitedUpdateError } = await (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          supabase.from('user_usage') as any
-        )
-          .update(updatePayload)
-          .eq('user_id', user.id)
-          .select('*')
-          .single();
+        const { data: updatedUnlimitedDataRaw, error: unlimitedUpdateError } =
+          await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from('user_usage') as any)
+            .update(updatePayload)
+            .eq('user_id', user.id)
+            .select('*')
+            .single();
 
-        const updatedUnlimitedData = updatedUnlimitedDataRaw as Tables<'user_usage'> | null;
+        const updatedUnlimitedData =
+          updatedUnlimitedDataRaw as Tables<'user_usage'> | null;
         if (!unlimitedUpdateError && updatedUnlimitedData) {
           finalUsageData = updatedUnlimitedData;
         }
@@ -131,28 +132,33 @@ export async function GET() {
 
     // Try to find Stripe customer by email first
     let customer = null;
-    try {
-      const customers = await stripe.customers.list({
-        email: user.email,
-        limit: 1,
-      });
-      customer = customers.data[0];
-    } catch (error) {
-      console.error('Error fetching customer by email:', error);
-    }
 
-    // If not found by email, try by metadata
-    if (!customer) {
+    // skip Stripe checks if not configured
+    if (stripe) {
       try {
         const customers = await stripe.customers.list({
-          limit: 100,
+          email: user.email,
+          limit: 1,
         });
-        customer = customers.data.find(c => 
-          c.metadata?.user_id === user.id || 
-          c.metadata?.supabase_user_id === user.id
-        );
+        customer = customers.data[0];
       } catch (error) {
-        console.error('Error fetching customer by metadata:', error);
+        console.error('Error fetching customer by email:', error);
+      }
+
+      // If not found by email, try by metadata
+      if (!customer) {
+        try {
+          const customers = await stripe.customers.list({
+            limit: 100,
+          });
+          customer = customers.data.find(
+            (c) =>
+              c.metadata?.user_id === user.id ||
+              c.metadata?.supabase_user_id === user.id
+          );
+        } catch (error) {
+          console.error('Error fetching customer by metadata:', error);
+        }
       }
     }
 
@@ -169,12 +175,12 @@ export async function GET() {
           monthlyEditCount,
           remainingEdits: hasUnlimitedUser ? null : baseRemainingEdits,
           remainingMonthlyEdits: hasUnlimitedUser ? null : 0,
-          isPro: hasUnlimitedUser ? true : (finalUsageData?.is_pro || false),
+          isPro: hasUnlimitedUser ? true : finalUsageData?.is_pro || false,
           limitReached: hasUnlimitedUser ? false : baseRemainingEdits <= 0,
           monthlyLimitReached: false,
           monthlyResetDate: finalUsageData?.monthly_reset_date || null,
-          hasUnlimitedEdits: hasUnlimitedUser
-        }
+          hasUnlimitedEdits: hasUnlimitedUser,
+        },
       });
     }
 
@@ -182,20 +188,22 @@ export async function GET() {
     // Only consider active or trialing subscriptions so cancelled users can resubscribe
     let subscription: Stripe.Subscription | null = null;
 
-    const activeSubs = await stripe.subscriptions.list({
-      customer: customer.id,
-      status: 'active',
-      limit: 1,
-    });
-    subscription = activeSubs.data[0] || null;
-
-    if (!subscription) {
-      const trialSubs = await stripe.subscriptions.list({
+    if (stripe && customer) {
+      const activeSubs = await stripe.subscriptions.list({
         customer: customer.id,
-        status: 'trialing',
+        status: 'active',
         limit: 1,
       });
-      subscription = trialSubs.data[0] || null;
+      subscription = activeSubs.data[0] || null;
+
+      if (!subscription) {
+        const trialSubs = await stripe.subscriptions.list({
+          customer: customer.id,
+          status: 'trialing',
+          limit: 1,
+        });
+        subscription = trialSubs.data[0] || null;
+      }
     }
 
     if (!subscription) {
@@ -211,12 +219,12 @@ export async function GET() {
           monthlyEditCount,
           remainingEdits: hasUnlimitedUser ? null : baseRemainingEdits,
           remainingMonthlyEdits: hasUnlimitedUser ? null : 0,
-          isPro: hasUnlimitedUser ? true : (finalUsageData?.is_pro || false),
+          isPro: hasUnlimitedUser ? true : finalUsageData?.is_pro || false,
           limitReached: hasUnlimitedUser ? false : baseRemainingEdits <= 0,
           monthlyLimitReached: false,
           monthlyResetDate: finalUsageData?.monthly_reset_date || null,
-          hasUnlimitedEdits: hasUnlimitedUser
-        }
+          hasUnlimitedEdits: hasUnlimitedUser,
+        },
       });
     }
 
@@ -227,13 +235,17 @@ export async function GET() {
         p_stripe_customer_id: customer.id,
         p_stripe_subscription_id: subscription.id,
         p_subscription_status: subscription.status,
-        p_current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        p_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        p_current_period_start: new Date(
+          subscription.current_period_start * 1000
+        ).toISOString(),
+        p_current_period_end: new Date(
+          subscription.current_period_end * 1000
+        ).toISOString(),
         p_cancel_at_period_end: subscription.cancel_at_period_end,
       } as const;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase.rpc('update_user_subscription_status', rpcArgs as any));
+      await supabase.rpc('update_user_subscription_status', rpcArgs as any);
     } catch (error) {
       console.error('Error updating subscription status in database:', error);
     }
@@ -253,7 +265,7 @@ export async function GET() {
         cancel_at_period_end: subscription.cancel_at_period_end,
         current_period_end: subscription.current_period_end,
         current_period_start: subscription.current_period_start,
-        items: subscription.items.data.map(item => ({
+        items: subscription.items.data.map((item) => ({
           id: item.id,
           price: {
             id: item.price.id,
@@ -269,21 +281,24 @@ export async function GET() {
         remainingEdits: hasUnlimitedUser ? null : baseRemainingEdits,
         remainingMonthlyEdits: hasUnlimitedUser
           ? null
-          : (isActive ? baseRemainingEdits : 0),
-        isPro: (subscription.status === 'active') || hasUnlimitedUser,
+          : isActive
+            ? baseRemainingEdits
+            : 0,
+        isPro: subscription.status === 'active' || hasUnlimitedUser,
         limitReached: hasUnlimitedUser
           ? false
-          : (isActive
+          : isActive
             ? monthlyEditCount >= PRO_MONTHLY_EDIT_LIMIT
-            : editCount >= FREE_DAILY_EDIT_LIMIT),
+            : editCount >= FREE_DAILY_EDIT_LIMIT,
         monthlyLimitReached: hasUnlimitedUser
           ? false
-          : (isActive ? monthlyEditCount >= PRO_MONTHLY_EDIT_LIMIT : false),
+          : isActive
+            ? monthlyEditCount >= PRO_MONTHLY_EDIT_LIMIT
+            : false,
         monthlyResetDate: finalUsageData?.monthly_reset_date || null,
-        hasUnlimitedEdits: hasUnlimitedUser
-      }
+        hasUnlimitedEdits: hasUnlimitedUser,
+      },
     });
-
   } catch (error) {
     console.error('Error fetching subscription status:', error);
     return NextResponse.json(
