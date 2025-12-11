@@ -8,8 +8,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { UsageIndicator } from '@/components/subscription/usage-indicator';
-import { Loader2, WandSparkles, ChevronDown, FileText, FolderArchive } from 'lucide-react';
+import {
+  Loader2,
+  WandSparkles,
+  ChevronDown,
+  FileText,
+  FolderArchive,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 interface EditorToolbarProps {
@@ -80,7 +85,6 @@ export function EditorToolbar({
         </div>
 
         <div className="flex items-center gap-2">
-          <UsageIndicator />
           {lastSaved && (
             <span className="text-sm text-slate-500">
               Last saved: {lastSaved.toLocaleTimeString()}
@@ -139,10 +143,7 @@ export function EditorToolbar({
                 <FileText className="size-4" />
                 Export as PDF
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={onExportZIP}
-                className="gap-2"
-              >
+              <DropdownMenuItem onClick={onExportZIP} className="gap-2">
                 <FolderArchive className="size-4" />
                 Export as ZIP
               </DropdownMenuItem>
