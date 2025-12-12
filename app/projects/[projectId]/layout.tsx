@@ -8,6 +8,8 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { ProjectBreadcrumbs } from '@/components/projects/project-breadcrumbs';
 import { getProjectById } from '@/actions/get-projects';
 import { getCurrentUser } from '@/actions/get-user';
+import { House } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default async function ProjectLayout({
   children,
@@ -32,6 +34,17 @@ export default async function ProjectLayout({
 
           <div className="flex w-full min-w-0 items-center justify-center px-[135px]">
             <ProjectBreadcrumbs projectTitle={project?.title || 'Project'} />
+          </div>
+
+          <div className="absolute right-4 flex items-center gap-2">
+            <Button
+              data-sidebar="trigger"
+              data-slot="sidebar-trigger"
+              variant="ghost"
+              size="sm"
+            >
+              <House />
+            </Button>
           </div>
         </header>
 
