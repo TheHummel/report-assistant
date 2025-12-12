@@ -131,6 +131,9 @@ importers:
       markdown-it-texmath:
         specifier: ^1.0.0
         version: 1.0.0
+      monaco-editor:
+        specifier: ^0.55.1
+        version: 0.55.1
       next:
         specifier: ^15.2.4
         version: 15.5.6(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
