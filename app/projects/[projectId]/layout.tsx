@@ -5,7 +5,6 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
-import { BackButton } from '@/components/projects/back-button';
 import { ProjectBreadcrumbs } from '@/components/projects/project-breadcrumbs';
 import { getProjectById } from '@/actions/get-projects';
 import { getCurrentUser } from '@/actions/get-user';
@@ -29,8 +28,6 @@ export default async function ProjectLayout({
         <header className="relative flex flex-shrink-0 items-center justify-between border-b px-4 py-3">
           <div className="absolute left-2 flex items-center gap-2">
             <SidebarTrigger />
-            <span className="text-neutral-300">|</span>
-            <BackButton />
           </div>
 
           <div className="flex w-full min-w-0 items-center justify-center px-[135px]">

@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, X } from 'lucide-react';
+import { ChevronsLeft, FileText } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -60,7 +60,7 @@ export function AppSidebar({ userName }: AppSidebarProps) {
           className="rounded-md p-1.5 transition-colors hover:bg-gray-100"
           aria-label="Close sidebar"
         >
-          <X className="h-4 w-4 text-gray-500" />
+          <ChevronsLeft className="h-4 w-4" />
         </button>
       </SidebarHeader>
       <SidebarContent>
