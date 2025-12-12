@@ -69,6 +69,17 @@ export function useChatStream() {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
+      // filter out binary files before sending to agent
+      const textFiles =
+        projectContext.projectFiles?.filter((file) => {
+          const isImage =
+            /\.(png|jpg|jpeg|gif|bmp|svg|ico|webp|eps|ps|ai)$/i.test(file.path);
+          const isBinary = /\.(pdf|zip|tar|gz|exe|dll|so|dylib)$/i.test(
+            file.path
+          );
+          return !isImage && !isBinary;
+        }) || [];
+
       const res = await fetch('/api/octra-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -77,7 +88,7 @@ export function useChatStream() {
           fileContent,
           textFromEditor,
           selectionRange,
-          projectFiles: projectContext.projectFiles,
+          projectFiles: textFiles,
           currentFilePath: projectContext.currentFilePath,
         }),
         signal: controller.signal,
@@ -179,9 +190,18 @@ export function useChatStream() {
             if (payload?.state) callbacks.onStatus(payload.state);
           } else if (eventName === 'tool') {
             const name = payload?.name ? String(payload.name) : 'tool';
-            const count = typeof payload?.count === 'number' ? payload.count : undefined;
-            const progressIncrement = typeof payload?.progress === 'number' ? payload.progress : undefined;
-            callbacks.onToolCall(name, count, payload?.violations, progressIncrement);
+            const count =
+              typeof payload?.count === 'number' ? payload.count : undefined;
+            const progressIncrement =
+              typeof payload?.progress === 'number'
+                ? payload.progress
+                : undefined;
+            callbacks.onToolCall(
+              name,
+              count,
+              payload?.violations,
+              progressIncrement
+            );
           } else if (eventName === 'error') {
             const errorMsg = payload?.message
               ? String(payload.message)
@@ -242,4 +262,3 @@ export function useChatStream() {
     stopStream,
   };
 }
-

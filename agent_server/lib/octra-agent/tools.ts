@@ -52,7 +52,9 @@ export function createGetContextTool(context: ToolContext) {
           path: file.path,
           content: file.content,
           lineCount: file.content.split('\n').length,
-          isCurrent: context.currentFilePath ? context.currentFilePath === file.path : false,
+          isCurrent: context.currentFilePath
+            ? context.currentFilePath === file.path
+            : false,
         }));
       }
       if (context.currentFilePath) {
@@ -96,11 +98,15 @@ export function createProposeEditsTool(context: ToolContext) {
         .min(1),
     },
     async (args) => {
-      const validation = validateLineEdits(args.edits, context.intent, context.fileContent);
-      
+      const validation = validateLineEdits(
+        args.edits,
+        context.intent,
+        context.fileContent
+      );
+
       // Add accepted edits to the collection
       context.collectedEdits.push(...validation.acceptedEdits);
-      
+
       const totalEdits = validation.acceptedEdits.length;
 
       context.writeEvent('tool', {
@@ -120,7 +126,7 @@ export function createProposeEditsTool(context: ToolContext) {
         // Emit the full batch of edits once all progress events are dispatched
         context.writeEvent('edits', validation.acceptedEdits);
       }
-      
+
       return {
         content: [
           {
@@ -139,8 +145,5 @@ export function createProposeEditsTool(context: ToolContext) {
  * @returns Array of configured tool instances
  */
 export function createOctraTools(context: ToolContext) {
-  return [
-    createGetContextTool(context),
-    createProposeEditsTool(context),
-  ];
+  return [createGetContextTool(context), createProposeEditsTool(context)];
 }

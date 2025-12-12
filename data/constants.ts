@@ -3,7 +3,9 @@ export const FREE_DAILY_EDIT_LIMIT = 5;
 export const PRO_MONTHLY_EDIT_LIMIT = 500;
 export const PRO_SUBSCRIPTION_PRICE = 10; // USD per month
 
-export const DEFAULT_LATEX_CONTENT = (title: string) => `\\documentclass{article}
+export const DEFAULT_LATEX_CONTENT = (
+  title: string
+) => `\\documentclass{article}
 \\usepackage[utf8]{inputenc}
 \\usepackage{amsmath}
 \\usepackage{graphicx}
@@ -53,7 +55,12 @@ Your content here.
 \\end{document}`;
 };
 
-export const NON_LATEX_FILE_CONTENT = (fileName: string, projectTitle: string, fileSize: number | null, fileType: string | null) => `// File: ${fileName}
+export const NON_LATEX_FILE_CONTENT = (
+  fileName: string,
+  projectTitle: string,
+  fileSize: number | null,
+  fileType: string | null
+) => `// File: ${fileName}
 // Project: ${projectTitle}
 // Size: ${fileSize || 'Unknown'} bytes
 // Type: ${fileType || 'Unknown'}
