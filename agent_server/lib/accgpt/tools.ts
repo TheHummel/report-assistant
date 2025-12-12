@@ -21,10 +21,15 @@ export const GET_CONTEXT_TOOL: ACCGPTToolDefinition = {
   function: {
     name: 'get_context',
     description:
-      'Retrieve the current LaTeX file context with numbered lines and optional user selection. Use this to understand the document structure before proposing edits.',
+      'Retrieve LaTeX file context with numbered lines. By default returns the current file. Use filePath parameter to retrieve content from other project files.',
     parameters: {
       type: 'object',
       properties: {
+        filePath: {
+          type: 'string',
+          description:
+            'Optional: Path of the file to retrieve. If not provided, returns the current file. Use paths from the project structure (e.g., "references.bib", "sections/introduction.tex").',
+        },
         includeNumbered: {
           type: 'boolean',
           description:
@@ -33,7 +38,7 @@ export const GET_CONTEXT_TOOL: ACCGPTToolDefinition = {
         includeSelection: {
           type: 'boolean',
           description:
-            "Whether to include the user's selected text. Defaults to true.",
+            "Whether to include the user's selected text (only applicable for current file). Defaults to true.",
         },
       },
       required: [],
@@ -46,10 +51,15 @@ export const PROPOSE_EDITS_TOOL: ACCGPTToolDefinition = {
   function: {
     name: 'propose_edits',
     description:
-      'Propose JSON-structured line-based edits to the LaTeX document. Each edit specifies a line number and the operation to perform (insert, delete, or replace). The user will review and accept/reject these edits.',
+      'Propose JSON-structured line-based edits to LaTeX files. Each edit specifies a file path (optional, defaults to current file), line number, and operation (insert, delete, or replace). The user will review and accept/reject these edits.',
     parameters: {
       type: 'object',
       properties: {
+        filePath: {
+          type: 'string',
+          description:
+            'Optional: Path of the file to edit. If not provided, edits apply to the current file. Use paths from the project structure (e.g., "references.bib", "sections/introduction.tex").',
+        },
         edits: {
           type: 'array',
           description: 'Array of edit operations to propose',
@@ -148,31 +158,65 @@ function executeGetContext(
   context: ToolExecutionContext
 ): ToolResult {
   const { agentContext, writeEvent } = context;
+  const requestedFilePath = args.filePath as string | undefined;
   const includeNumbered = args.includeNumbered !== false;
   const includeSelection = args.includeSelection !== false;
 
+  let targetFile: { path: string; content: string } | null = null;
+
+  if (requestedFilePath) {
+    // look for requested file in project files
+    targetFile =
+      agentContext.projectFiles?.find((f) => f.path === requestedFilePath) ||
+      null;
+
+    if (!targetFile) {
+      writeEvent('tool', { name: 'get_context', error: 'file_not_found' });
+      return {
+        tool_call_id: toolCallId,
+        content: JSON.stringify({
+          error: `File not found: ${requestedFilePath}`,
+          availableFiles: agentContext.projectFiles?.map((f) => f.path) || [],
+        }),
+      };
+    }
+  } else {
+    // default to current file
+    targetFile = {
+      path: agentContext.currentFilePath || 'current',
+      content: agentContext.fileContent,
+    };
+  }
+
   const payload: Record<string, unknown> = {
-    lineCount: agentContext.fileContent.split('\n').length,
+    filePath: targetFile.path,
+    lineCount: targetFile.content.split('\n').length,
   };
 
   if (includeNumbered) {
-    payload.numberedContent = agentContext.numberedContent;
+    // number the lines of the target file
+    const lines = targetFile.content.split('\n');
+    payload.numberedContent = lines
+      .map((line, index) => `${index + 1}: ${line}`)
+      .join('\n');
   }
 
-  if (includeSelection && agentContext.textFromEditor) {
+  // selection only applies to current file
+  if (!requestedFilePath && includeSelection && agentContext.textFromEditor) {
     payload.selection = agentContext.textFromEditor;
   }
 
-  if (agentContext.selectionRange) {
+  if (!requestedFilePath && agentContext.selectionRange) {
     payload.selectionRange = agentContext.selectionRange;
   }
 
   if (agentContext.projectFiles?.length) {
+    // Only include metadata to keep payload small
     payload.projectFiles = agentContext.projectFiles.map(
       (file: ProjectFileContext) => ({
         path: file.path,
-        content: file.content,
         lineCount: file.content.split('\n').length,
+        size: file.content.length,
         isCurrent: agentContext.currentFilePath
           ? agentContext.currentFilePath === file.path
           : false,
@@ -184,7 +228,7 @@ function executeGetContext(
     payload.currentFilePath = agentContext.currentFilePath;
   }
 
-  writeEvent('tool', { name: 'get_context' });
+  writeEvent('tool', { name: 'get_context', filePath: targetFile.path });
 
   return {
     tool_call_id: toolCallId,
@@ -201,6 +245,7 @@ function executeProposeEdits(
   context: ToolExecutionContext
 ): ToolResult {
   const { agentContext, intent, collectedEdits, writeEvent } = context;
+  const requestedFilePath = args.filePath as string | undefined;
   const edits = args.edits as Array<{
     editType: 'insert' | 'delete' | 'replace';
     content?: string;
@@ -216,16 +261,54 @@ function executeProposeEdits(
     };
   }
 
-  // validate edits against intent restrictions
-  const validation = validateLineEdits(edits, intent, agentContext.fileContent);
+  // determine target file content for validation
+  let targetFileContent: string;
+  let targetFilePath: string;
 
-  // add accepted edits to collection
-  collectedEdits.push(...validation.acceptedEdits);
+  if (requestedFilePath) {
+    const targetFile = agentContext.projectFiles?.find(
+      (f) => f.path === requestedFilePath
+    );
+
+    if (!targetFile) {
+      writeEvent('tool', {
+        name: 'propose_edits',
+        error: 'file_not_found',
+        requestedPath: requestedFilePath,
+      });
+      return {
+        tool_call_id: toolCallId,
+        content: JSON.stringify({
+          error: `Cannot edit file: ${requestedFilePath} not found in project`,
+          availableFiles: agentContext.projectFiles?.map((f) => f.path) || [],
+        }),
+      };
+    }
+
+    targetFileContent = targetFile.content;
+    targetFilePath = targetFile.path;
+  } else {
+    // default to current file
+    targetFileContent = agentContext.fileContent;
+    targetFilePath = agentContext.currentFilePath || 'current';
+  }
+
+  // validate edits against intent restrictions
+  const validation = validateLineEdits(edits, intent, targetFileContent);
+
+  // tag edits with file path and add to collection
+  const editsWithFilePath = validation.acceptedEdits.map((edit) => ({
+    ...edit,
+    filePath: targetFilePath,
+  }));
+
+  collectedEdits.push(...editsWithFilePath);
 
   const totalEdits = validation.acceptedEdits.length;
 
   writeEvent('tool', {
     name: 'propose_edits',
+    filePath: targetFilePath,
     count: totalEdits,
     violations: validation.violations,
   });
@@ -239,11 +322,11 @@ function executeProposeEdits(
       });
     });
 
-    // emit full batch of edits
-    writeEvent('edits', validation.acceptedEdits);
+    // emit full batch of edits with file path
+    writeEvent('edits', editsWithFilePath);
   }
 
-  const resultMessage = `Accepted ${validation.acceptedEdits.length} edit(s).${
+  const resultMessage = `Accepted ${validation.acceptedEdits.length} edit(s) for ${targetFilePath}.${
     validation.violations.length
       ? ` Blocked ${validation.violations.length} edit(s) due to intent restrictions.`
       : ''
