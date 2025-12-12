@@ -37,39 +37,44 @@ export function validateLineEdits(
 ): ValidationResult {
   const violations: string[] = [];
   const acceptedEdits: LineEdit[] = [];
-  
+
   for (const edit of edits) {
     const lineNumber = edit.position?.line || 0;
-    
+
     // Enforce intent-based permissions
     if (edit.editType === 'insert') {
       if (!intent.allowInsert) {
-        violations.push(`Content insertion not allowed by inferred intent at line ${lineNumber}.`);
+        violations.push(
+          `Content insertion not allowed by inferred intent at line ${lineNumber}.`
+        );
         continue;
       }
     }
-    
+
     if (edit.editType === 'delete') {
       if (!intent.allowDelete) {
-        violations.push(`Content deletion not allowed by inferred intent at line ${lineNumber}.`);
+        violations.push(
+          `Content deletion not allowed by inferred intent at line ${lineNumber}.`
+        );
         continue;
       }
     }
-    
+
     if (edit.editType === 'replace') {
       if (!intent.allowReplace) {
-        violations.push(`Content replacement not allowed by inferred intent at line ${lineNumber}.`);
+        violations.push(
+          `Content replacement not allowed by inferred intent at line ${lineNumber}.`
+        );
         continue;
       }
     }
-    
+
     acceptedEdits.push(edit);
   }
-  
+
   return {
     isValid: violations.length === 0,
     violations,
-    acceptedEdits
+    acceptedEdits,
   };
 }
-

@@ -25,7 +25,7 @@ function getSuggestedText(suggestion: EditSuggestion): string {
   if (suggestion.editType === 'delete') {
     return '';
   }
-  
+
   return suggestion.content || '';
 }
 
@@ -41,7 +41,7 @@ export function SuggestionActions({
   }
 
   return (
-    <div className="absolute top-2 right-2 z-50 max-w-[350px] space-y-2">
+    <div className="absolute right-2 top-2 z-50 max-w-[350px] space-y-2">
       {pendingSuggestions.map((suggestion) => (
         <div
           key={suggestion.id}
@@ -53,7 +53,7 @@ export function SuggestionActions({
               {getOriginalLineCount(suggestion) > 1 &&
                 `-${getStartLine(suggestion) + getOriginalLineCount(suggestion) - 1}`}
               {suggestion.editType === 'delete' && (
-                <span className="ml-2 text-red-600 text-xs">(DELETE)</span>
+                <span className="ml-2 text-xs text-red-600">(DELETE)</span>
               )}
             </div>
             <div className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-500">

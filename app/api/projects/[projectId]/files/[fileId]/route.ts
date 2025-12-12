@@ -104,7 +104,7 @@ export async function PUT(
     }
 
     const { projectId, fileId } = await params;
-    const { content } = await request.json();
+    const { content, filename } = await request.json();
 
     if (content === undefined || content === null) {
       return NextResponse.json(
@@ -113,27 +113,35 @@ export async function PUT(
       );
     }
 
-    const { data: storageFiles, error: listError } = await supabase.storage
-      .from('octree')
-      .list(`projects/${projectId}`);
+    // use filename if provided, otherwise fall back to fileId lookup
+    let targetFilename = filename;
 
-    if (listError || !storageFiles) {
-      return NextResponse.json(
-        { error: 'Failed to list files' },
-        { status: 500 }
-      );
+    if (!targetFilename) {
+      // try to find file by ID
+      const { data: storageFiles, error: listError } = await supabase.storage
+        .from('octree')
+        .list(`projects/${projectId}`);
+
+      if (listError || !storageFiles) {
+        return NextResponse.json(
+          { error: 'Failed to list files' },
+          { status: 500 }
+        );
+      }
+
+      const file = storageFiles.find((f) => f.id === fileId);
+
+      if (!file) {
+        return NextResponse.json({ error: 'File not found' }, { status: 404 });
+      }
+
+      targetFilename = file.name;
     }
 
-    const file = storageFiles.find((f) => f.id === fileId);
-
-    if (!file) {
-      return NextResponse.json({ error: 'File not found' }, { status: 404 });
-    }
-
-    const contentType = getContentTypeByFilename(file.name);
+    const contentType = getContentTypeByFilename(targetFilename);
     let blob: Blob;
 
-    if (isBinaryFile(file.name)) {
+    if (isBinaryFile(targetFilename)) {
       const binaryString = atob(content);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
@@ -146,7 +154,7 @@ export async function PUT(
 
     const { error: uploadError } = await supabase.storage
       .from('octree')
-      .upload(`projects/${projectId}/${file.name}`, blob, {
+      .upload(`projects/${projectId}/${targetFilename}`, blob, {
         cacheControl: '3600',
         upsert: true,
         contentType,
@@ -162,24 +170,44 @@ export async function PUT(
 
     revalidatePath(`/projects/${projectId}`);
 
+    // handle nested paths in filename
+    const lastSlashIndex = targetFilename.lastIndexOf('/');
+    const dirPath =
+      lastSlashIndex > 0 ? targetFilename.substring(0, lastSlashIndex) : '';
+    const fileName =
+      lastSlashIndex > 0
+        ? targetFilename.substring(lastSlashIndex + 1)
+        : targetFilename;
+
+    // get updated file metadata after save
+    const listPath = dirPath
+      ? `projects/${projectId}/${dirPath}`
+      : `projects/${projectId}`;
+
+    const { data: updatedFiles, error: listAfterError } = await supabase.storage
+      .from('octree')
+      .list(listPath);
+
+    const updatedFile = updatedFiles?.find((f) => f.name === fileName);
+
     return NextResponse.json({
       file: {
-        id: file.id,
-        name: file.name,
+        id: updatedFile?.id || fileId,
+        name: targetFilename,
         project_id: projectId,
-        size: file.metadata?.size || null,
-        type: file.metadata?.mimetype || null,
-        uploaded_at: file.created_at,
+        size: updatedFile?.metadata?.size || null,
+        type: updatedFile?.metadata?.mimetype || null,
+        uploaded_at: updatedFile?.created_at || new Date().toISOString(),
       },
       document: {
-        id: file.id,
-        title: file.name,
+        id: updatedFile?.id || fileId,
+        title: targetFilename,
         content: content,
         owner_id: user.id,
         project_id: projectId,
-        filename: file.name,
-        document_type: file.name === 'main.tex' ? 'article' : 'file',
-        created_at: file.created_at,
+        filename: targetFilename,
+        document_type: targetFilename === 'main.tex' ? 'article' : 'file',
+        created_at: updatedFile?.created_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
     });

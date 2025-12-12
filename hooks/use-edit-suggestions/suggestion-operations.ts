@@ -32,15 +32,13 @@ export async function acceptSingleEdit(
     const startLineNumber = getStartLine(suggestion);
     const originalLineCount = getOriginalLineCount(suggestion);
     const suggestedText = getSuggestedText(suggestion);
-    
+
     const endLineNumber =
       originalLineCount > 0
         ? startLineNumber + originalLineCount - 1
         : startLineNumber;
     const endColumn =
-      originalLineCount > 0
-        ? model.getLineMaxColumn(endLineNumber)
-        : 1;
+      originalLineCount > 0 ? model.getLineMaxColumn(endLineNumber) : 1;
 
     const rangeToReplace = new monacoInstance.Range(
       startLineNumber,
@@ -66,11 +64,12 @@ export async function acceptSingleEdit(
     onUpdate((prev) => {
       const remaining = prev.filter((s) => s.id !== suggestionId);
       const adjusted: EditSuggestion[] = [];
-      
+
       for (const s of remaining) {
         const sStart = getStartLine(s);
         const sOriginalLineCount = getOriginalLineCount(s);
-        const sEnd = sOriginalLineCount > 0 ? sStart + sOriginalLineCount - 1 : sStart;
+        const sEnd =
+          sOriginalLineCount > 0 ? sStart + sOriginalLineCount - 1 : sStart;
 
         // If suggestion overlaps the accepted region, handle conflict
         if (rangesOverlap(sStart, sEnd, acceptedStart, acceptedEnd)) {
@@ -83,12 +82,12 @@ export async function acceptSingleEdit(
             sStart === acceptedStart &&
             deltaLines !== 0
           ) {
-            adjusted.push({ 
-              ...s, 
-              position: { 
-                ...s.position, 
-                line: (s.position?.line || 1) + deltaLines 
-              } 
+            adjusted.push({
+              ...s,
+              position: {
+                ...s.position,
+                line: (s.position?.line || 1) + deltaLines,
+              },
             });
           }
           // Otherwise skip conflicting suggestion
@@ -99,9 +98,9 @@ export async function acceptSingleEdit(
         if (sStart > acceptedEnd && deltaLines !== 0) {
           adjusted.push({
             ...s,
-            position: { 
-              ...s.position, 
-              line: (s.position?.line || 1) + deltaLines 
+            position: {
+              ...s.position,
+              line: (s.position?.line || 1) + deltaLines,
             },
           });
         } else {
@@ -110,7 +109,7 @@ export async function acceptSingleEdit(
       }
       return adjusted;
     });
-    
+
     toast.success('Edit applied', { duration: 1000 });
   } catch (error) {
     console.error('Error applying edit:', error);
@@ -127,7 +126,10 @@ export async function acceptAllEdits(
   monacoInstance: typeof Monaco,
   onClearAll: () => void
 ): Promise<void> {
-  if (allPendingSuggestions.length === 0) return;
+  if (allPendingSuggestions.length === 0) {
+    onClearAll();
+    return;
+  }
 
   const model = editor.getModel();
   if (!model) {
@@ -149,15 +151,13 @@ export async function acceptAllEdits(
       const startLineNumber = getStartLine(suggestion);
       const originalLineCount = getOriginalLineCount(suggestion);
       const suggestedText = getSuggestedText(suggestion);
-      
+
       const endLineNumber =
         originalLineCount > 0
           ? startLineNumber + originalLineCount - 1
           : startLineNumber;
       const endColumn =
-        originalLineCount > 0
-          ? model.getLineMaxColumn(endLineNumber)
-          : 1;
+        originalLineCount > 0 ? model.getLineMaxColumn(endLineNumber) : 1;
 
       return {
         range: new monacoInstance.Range(
@@ -175,8 +175,10 @@ export async function acceptAllEdits(
     editor.executeEdits('accept-all-ai-suggestions', edits);
 
     onClearAll();
-    
-    toast.success(`Applied ${allPendingSuggestions.length} edits`, { duration: 2000 });
+
+    toast.success(`Applied ${allPendingSuggestions.length} edits`, {
+      duration: 2000,
+    });
   } catch (error) {
     console.error('Error applying all edits:', error);
     toast.error('Failed to apply suggestions. Please try again.');
@@ -192,4 +194,3 @@ export function rejectEdit(
 ): void {
   onUpdate((prev) => prev.filter((s) => s.id !== suggestionId));
 }
-

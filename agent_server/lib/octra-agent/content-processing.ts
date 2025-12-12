@@ -15,7 +15,10 @@ export interface ProjectFileContext {
  * @param textFromEditor - Optional selected text from editor
  * @returns Promise resolving to numbered content string
  */
-export async function buildNumberedContent(fileContent: string, textFromEditor?: string | null): Promise<string> {
+export async function buildNumberedContent(
+  fileContent: string,
+  textFromEditor?: string | null
+): Promise<string> {
   return new Promise((resolve) => {
     // Use setImmediate to avoid blocking the event loop
     setImmediate(() => {
@@ -54,9 +57,7 @@ export async function buildNumberedContent(fileContent: string, textFromEditor?:
  * @returns Normalized text with LF line endings
  */
 export function normalizeLineEndings(text: string): string {
-  return text
-    .split('\r\n').join('\n')
-    .split('\r').join('\n');
+  return text.split('\r\n').join('\n').split('\r').join('\n');
 }
 
 /**
@@ -91,20 +92,42 @@ export function buildSystemPrompt(
   const validProjectFiles =
     projectFiles?.filter(
       (file): file is ProjectFileContext =>
-        !!file && typeof file.path === 'string' && typeof file.content === 'string'
+        !!file &&
+        typeof file.path === 'string' &&
+        typeof file.content === 'string'
     ) ?? [];
+
+  // separate text and image files
+  const textFiles = validProjectFiles.filter(
+    (file) => !file.path.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i)
+  );
+  const imageFiles = validProjectFiles.filter((file) =>
+    file.path.match(/\.(png|jpg|jpeg|gif|svg|webp)$/i)
+  );
 
   const projectSection = validProjectFiles.length
     ? `
 
-Project files (full content provided for context):
-${validProjectFiles
+Project structure (${textFiles.length} text files${imageFiles.length > 0 ? `, ${imageFiles.length} images` : ''}):
+${textFiles
   .map((file) => {
-    const header = file.path === currentFilePath ? `${file.path} (currently open)` : file.path;
-    return `--- ${header} ---
-${file.content}`;
+    const isCurrent = file.path === currentFilePath;
+    // only include full content for current file, otherwise just list it
+    if (isCurrent) {
+      return `--- ${file.path} (CURRENT FILE - shown above with line numbers) ---`;
+    } else {
+      const lines = file.content.split('\n').length;
+      return `  - ${file.path} (${lines} lines) - use get_context to read if needed`;
+    }
   })
-  .join('\n\n')}`
+  .join('\n')}${
+        imageFiles.length > 0
+          ? `
+
+Image files (available in compiled PDF):
+${imageFiles.map((f) => `  - ${f.path}`).join('\n')}`
+          : ''
+      }`
     : '';
 
   return `You are Octra, a LaTeX editing assistant. You edit LaTeX documents by calling the 'propose_edits' tool.
@@ -113,6 +136,11 @@ ABSOLUTE RULE: For ANY editing request, you MUST:
 1. Immediately call the 'propose_edits' tool with the edit
 2. NEVER explain what should be done manually
 3. NEVER say you're "encountering issues" - just call the tool
+
+MULTI-FILE SUPPORT:
+- Use get_context(filePath: "path/to/file") to read any project file
+- Use propose_edits(filePath: "path/to/file", edits: [...]) to edit any project file
+- If no filePath specified, operations apply to the current file
 
 You have THREE edit types:
 - INSERT: { editType: 'insert', position: { line: N }, content: '...', originalLineCount: 0 }
@@ -139,12 +167,20 @@ Line numbers below are 1-indexed. Match them exactly in your edits.
 
 ---
 ${numberedContent}
----${textFromEditor ? `
+---${
+    textFromEditor
+      ? `
 
 Selected text:
 ---
 ${textFromEditor}
----` : ''}${selectionRange ? `
+---`
+      : ''
+  }${
+    selectionRange
+      ? `
 
-Selection: lines ${selectionRange.startLineNumber}-${selectionRange.endLineNumber}` : ''}${projectSection}`;
+Selection: lines ${selectionRange.startLineNumber}-${selectionRange.endLineNumber}`
+      : ''
+  }${projectSection}`;
 }

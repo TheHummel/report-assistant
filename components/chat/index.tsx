@@ -15,6 +15,7 @@ import { EmptyState } from './empty-state';
 interface ChatProps {
   onEditSuggestion: (edit: EditSuggestion | EditSuggestion[]) => void;
   onAcceptAllEdits?: () => void;
+  onFinalizeEdits?: () => void;
   pendingEditCount?: number;
   fileContent: string;
   textFromEditor: string | null;
@@ -44,6 +45,7 @@ export function Chat({
   setIsOpen,
   onEditSuggestion,
   onAcceptAllEdits,
+  onFinalizeEdits,
   pendingEditCount = 0,
   fileContent,
   textFromEditor,
@@ -284,6 +286,12 @@ export function Chat({
             if (state === 'started') setIsLoading(true);
           },
         });
+
+        if (onFinalizeEdits) {
+          onFinalizeEdits();
+        } else {
+          console.warn('[Chat] onFinalizeEdits is not defined!');
+        }
       }
     } catch (err) {
       console.error('Octra Agent API error:', err);

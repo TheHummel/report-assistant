@@ -5,7 +5,11 @@ import { toast } from 'sonner';
 import { useEditLimitCache } from '../use-edit-limit-cache';
 import { useSuggestionQueue } from './use-suggestion-queue';
 import { useSuggestionDecorations } from './use-suggestion-decorations';
-import { acceptSingleEdit, acceptAllEdits, rejectEdit } from './suggestion-operations';
+import {
+  acceptSingleEdit,
+  acceptAllEdits,
+  rejectEdit,
+} from './suggestion-operations';
 import type { EditSuggestionsState, UseEditSuggestionsProps } from './types';
 
 /**
@@ -15,12 +19,15 @@ export function useEditSuggestions({
   editor,
   monacoInstance,
   showInlinePreview = true,
+  currentFilePath,
+  projectFiles,
+  cancelPendingSave,
 }: UseEditSuggestionsProps): EditSuggestionsState {
   // Use cached edit limit to check before requesting AI suggestions
   // Note: Quota is consumed on generation (in /api/octra-agent), not on accept
   const { canEdit } = useEditLimitCache();
 
-  // Manage suggestion queue with batching
+  // Manage suggestion queue with batching and multi-file support
   const {
     editSuggestions,
     setEditSuggestions,
@@ -29,7 +36,13 @@ export function useEditSuggestions({
     handleEditSuggestion,
     handleNextSuggestion,
     clearContinueToast,
-  } = useSuggestionQueue({ editor });
+    finalizeEdits,
+  } = useSuggestionQueue({
+    editor,
+    currentFilePath,
+    projectFiles,
+    cancelPendingSave,
+  });
 
   // Manage editor decorations
   const { decorationIds, setDecorationIds } = useSuggestionDecorations({
@@ -71,7 +84,7 @@ export function useEditSuggestions({
     // Get ALL suggestions - both visible and queued
     const allPendingSuggestions = [
       ...editSuggestions.filter((s) => s.status === 'pending'),
-      ...queuedSuggestions
+      ...queuedSuggestions,
     ];
 
     if (allPendingSuggestions.length === 0) return;
@@ -89,16 +102,11 @@ export function useEditSuggestions({
       return;
     }
 
-    await acceptAllEdits(
-      allPendingSuggestions,
-      editor,
-      monacoInstance,
-      () => {
-        // Clear all suggestions and queue
-        setEditSuggestions([]);
-        clearContinueToast();
-      }
-    );
+    await acceptAllEdits(allPendingSuggestions, editor, monacoInstance, () => {
+      // Clear all suggestions and queue
+      setEditSuggestions([]);
+      clearContinueToast();
+    });
   }, [
     editSuggestions,
     queuedSuggestions,
@@ -127,6 +135,6 @@ export function useEditSuggestions({
     handleAcceptAllEdits,
     handleRejectEdit,
     handleNextSuggestion,
+    finalizeEdits,
   };
 }
-

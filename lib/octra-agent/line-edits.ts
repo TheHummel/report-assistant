@@ -8,5 +8,5 @@ export interface LineEdit {
   };
   originalLineCount?: number;
   explanation?: string;
+  filePath?: string; // target file path
 }
-

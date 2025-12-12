@@ -9,13 +9,14 @@ export interface SaveDocumentResult {
 export async function saveDocument(
   projectId: string,
   fileId: string,
-  content: string
+  content: string,
+  filename?: string
 ): Promise<SaveDocumentResult> {
   try {
     const response = await fetch(`/api/projects/${projectId}/files/${fileId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, filename }),
     });
 
     console.log('Save response:', response.status, response.statusText);

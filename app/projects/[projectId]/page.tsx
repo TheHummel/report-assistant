@@ -64,10 +64,23 @@ export default function ProjectPage() {
     getProjectFiles(projectId)
   );
 
-  const { isSaving, lastSaved, handleSaveDocument, debouncedSave } =
-    useDocumentSave();
+  const {
+    isSaving,
+    lastSaved,
+    handleSaveDocument,
+    debouncedSave,
+    cancelPendingSave,
+  } = useDocumentSave();
 
   const { handleTextFormat } = useTextFormatting({ editorRef });
+
+  const [autoSendMessage, setAutoSendMessage] = useState<string | null>(null);
+  const [hasCompiledOnMount, setHasCompiledOnMount] = useState(false);
+
+  // cancel any pending auto-save when switching files
+  useEffect(() => {
+    cancelPendingSave();
+  }, [selectedFile?.id, cancelPendingSave]);
 
   const {
     compiling,
@@ -90,9 +103,13 @@ export default function ProjectPage() {
     handleAcceptEdit,
     handleAcceptAllEdits,
     handleRejectEdit,
+    finalizeEdits,
   } = useEditSuggestions({
     editor: editorRef.current,
     monacoInstance: monacoRef.current,
+    currentFilePath: selectedFile?.name || null,
+    projectFiles,
+    cancelPendingSave,
   });
 
   const {
@@ -107,9 +124,6 @@ export default function ProjectPage() {
     handleCopy,
     setupEditorListeners,
   } = useEditorInteractions();
-
-  const [autoSendMessage, setAutoSendMessage] = useState<string | null>(null);
-  const [hasCompiledOnMount, setHasCompiledOnMount] = useState(false);
 
   const projectFileContext = useMemo(
     () =>
@@ -326,6 +340,7 @@ export default function ProjectPage() {
         setIsOpen={setChatOpen}
         onEditSuggestion={handleSuggestionFromChat}
         onAcceptAllEdits={handleAcceptAllEdits}
+        onFinalizeEdits={finalizeEdits}
         pendingEditCount={totalPendingCount}
         fileContent={content}
         textFromEditor={textFromEditor}

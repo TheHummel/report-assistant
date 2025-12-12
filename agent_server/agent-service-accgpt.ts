@@ -49,10 +49,15 @@ const ACCGPT_BASE_URL =
 const ACCGPT_API_KEY = process.env.CSS_API_KEY || '';
 const ACCGPT_MODEL = process.env.ACCGPT_MODEL || 'openai/gpt-oss-120b';
 const MAX_AGENT_ITERATIONS = 10; // Safety limit for agentic loop
+const TOOL_CALL_DELAY_MS = parseInt(process.env.TOOL_CALL_DELAY_MS || '0', 10);
 
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function validateApiConfig(): { isValid: boolean; error?: string } {
   if (!ACCGPT_API_KEY) {
@@ -175,6 +180,14 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
       currentFilePath,
     } = req.body || {};
 
+    // filter out file with .cls
+    const filteredProjectFilesPayload = Array.isArray(projectFilesPayload)
+      ? projectFilesPayload.filter(
+          (file: { path?: unknown }) =>
+            typeof file.path === 'string' && !file.path.endsWith('cls')
+        )
+      : [];
+
     if (!messages?.length || typeof fileContent !== 'string') {
       return res
         .status(400)
@@ -195,9 +208,9 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
 
     // Process project files
     const projectFiles: ProjectFileContext[] = Array.isArray(
-      projectFilesPayload
+      filteredProjectFilesPayload
     )
-      ? projectFilesPayload
+      ? filteredProjectFilesPayload
           .filter(
             (file: unknown): file is { path: string; content: string } =>
               !!file &&
@@ -289,7 +302,10 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
         break;
       }
 
-      console.log('[ACCGPT Agent] Received response:', JSON.stringify(response, null, 2));
+      console.log(
+        '[ACCGPT Agent] Received response:',
+        JSON.stringify(response, null, 2)
+      );
 
       // Extract content and tool calls
       const textContent = extractTextContent(response);
@@ -351,6 +367,11 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
             content: result.content,
           });
         }
+
+        // optional delay between tool calls to avoid rate limits
+        if (TOOL_CALL_DELAY_MS > 0) {
+          await sleep(TOOL_CALL_DELAY_MS);
+        }
       } else if (!isComplete(response)) {
         // No tool calls but not complete - unusual, break to avoid infinite loop
         console.warn(
@@ -365,8 +386,8 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
       writeEvent('error', { message: 'Agent reached maximum iteration limit' });
     }
 
-    // Send final response (text only in done event to avoid duplicates)
-    writeEvent('done', { text: finalText, edits: collectedEdits });
+    // Send final response (text only, edits already sent individually)
+    writeEvent('done', { text: finalText });
     res.end();
   } catch (error) {
     console.error('[ACCGPT Agent] Error:', error);

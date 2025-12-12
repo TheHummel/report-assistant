@@ -11,6 +11,7 @@ export interface DocumentSaveState {
   lastSaved: Date | null;
   handleSaveDocument: (contentToSave?: string) => Promise<boolean>;
   debouncedSave: (content: string) => void;
+  cancelPendingSave: () => void;
   setLastSaved: (date: Date | null) => void;
 }
 
@@ -42,11 +43,11 @@ export function useDocumentSave(): DocumentSaveState {
       const result = await saveDocument(
         project.id,
         selectedFile.id,
-        contentToUse
+        contentToUse,
+        selectedFile.name
       );
 
       if (!result.success) {
-        console.error('Error saving document:', result.error);
         return false;
       }
 
@@ -64,11 +65,16 @@ export function useDocumentSave(): DocumentSaveState {
     handleSaveDocument(content);
   }, 1000);
 
+  const cancelPendingSave = () => {
+    debouncedSave.cancel();
+  };
+
   return {
     isSaving,
     lastSaved,
     handleSaveDocument,
     debouncedSave,
+    cancelPendingSave,
     setLastSaved,
   };
 }

@@ -1,5 +1,6 @@
 import { EditSuggestion } from '@/types/edit';
 import type * as Monaco from 'monaco-editor';
+import type { ProjectFile } from '@/hooks/use-file-editor';
 
 /**
  * Internal types for edit suggestions management
@@ -15,12 +16,16 @@ export interface EditSuggestionsState {
   handleAcceptAllEdits: () => Promise<void>;
   handleRejectEdit: (suggestionId: string) => void;
   handleNextSuggestion: () => void;
+  finalizeEdits: () => void;
 }
 
 export interface UseEditSuggestionsProps {
   editor: Monaco.editor.IStandaloneCodeEditor | null;
   monacoInstance: typeof Monaco | null;
   showInlinePreview?: boolean; // controls inline 'after' preview decoration
+  currentFilePath?: string | null;
+  projectFiles?: ProjectFile[] | null;
+  cancelPendingSave?: () => void; // cancel any pending debounced saves before file switch
 }
 
 export interface SuggestionQueueState {
@@ -29,4 +34,3 @@ export interface SuggestionQueueState {
   totalPendingCount: number;
   hasActiveBatch: boolean;
 }
-
