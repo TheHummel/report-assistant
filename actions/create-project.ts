@@ -56,7 +56,8 @@ export async function createProject(title: string) {
     }
 
     // get template files for the radiation test report
-    const templateFiles = await getRadiationTemplateFiles(validatedTitle);
+    const templateDir = 'public/radiation-test-report-template-master';
+    const templateFiles = await getRadiationTemplateFiles(templateDir);
 
     // upload files to storage
     for (const templateFile of templateFiles) {
