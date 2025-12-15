@@ -16,8 +16,11 @@ export interface ACCGPTMessage {
 }
 
 export interface ACCGPTContentPart {
-  type: 'text';
-  text: string;
+  type: 'text' | 'image_url';
+  text?: string;
+  image_url?: {
+    url: string;
+  };
 }
 
 export interface ACCGPTToolCall {

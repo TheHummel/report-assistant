@@ -10,6 +10,7 @@ export interface KeyboardShortcutsConfig {
   onSave?: (content: string) => void;
   onCopy?: (text: string) => void;
   onTextFormat?: (format: 'bold' | 'italic' | 'underline') => void;
+  onImageUpload?: () => void;
 }
 
 export function useEditorKeyboardShortcuts({
@@ -18,6 +19,7 @@ export function useEditorKeyboardShortcuts({
   onSave,
   onCopy,
   onTextFormat,
+  onImageUpload,
 }: KeyboardShortcutsConfig) {
   const { toggleSidebar } = useSidebar();
 
@@ -51,6 +53,16 @@ export function useEditorKeyboardShortcuts({
           toggleSidebar();
           return false;
         }
+
+        // check for Cmd+U or Ctrl+U for image upload
+        if ((e.metaKey || e.ctrlKey) && e.key === 'u') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (onImageUpload) {
+            onImageUpload();
+          }
+          return false;
+        }
       };
 
       editorDomNode.addEventListener('keydown', handleKeyDown);
@@ -60,7 +72,7 @@ export function useEditorKeyboardShortcuts({
         editorDomNode.removeEventListener('keydown', handleKeyDown);
       };
     }
-  }, [editor, monacoInstance, onSave, toggleSidebar]);
+  }, [editor, monacoInstance, onSave, toggleSidebar, onImageUpload]);
 
   useEffect(() => {
     if (!editor || !monacoInstance) return;

@@ -32,35 +32,27 @@ export async function convertImageToLatex(
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[convertImageToLatex] API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+      });
       return {
         success: false,
-        error: `Failed to convert image: ${response.statusText}`,
+        error: `Failed to convert image: ${response.status} - ${errorText || response.statusText}`,
       };
     }
 
-    // Stream the response
-    const reader = response.body?.getReader();
-    const decoder = new TextDecoder();
-    let latex = '';
-
-    if (!reader) {
-      return {
-        success: false,
-        error: 'No response body',
-      };
-    }
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      latex += decoder.decode(value, { stream: true });
-    }
+    // read the non-streaming response
+    const latex = await response.text();
 
     return {
       success: true,
       latex: latex.trim(),
     };
   } catch (error) {
+    console.error('[convertImageToLatex] Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
@@ -83,4 +75,3 @@ export async function convertImagesToLatex(
 
   return results;
 }
-

@@ -35,6 +35,9 @@ import type { EditSuggestion } from '@/types/edit';
 import { isImageFile, isPDFFile, isTextFile } from '@/lib/constants/file-types';
 import { ImageViewer } from '@/components/image-viewer';
 import { SimplePDFViewer } from '@/components/simple-pdf-viewer';
+import { ImageUploadModal } from '@/components/editor/image-upload-modal';
+import { useImageUpload } from '@/hooks/use-image-upload';
+import { getSubsectionFiles } from '@/lib/utils/latex-sections';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -60,6 +63,7 @@ export default function ProjectPage() {
     data: filesData,
     isLoading: isFilesLoading,
     error: filesError,
+    mutate: mutateFiles,
   } = useSWR<ProjectFile[]>(projectId ? ['files', projectId] : null, () =>
     getProjectFiles(projectId)
   );
@@ -76,6 +80,7 @@ export default function ProjectPage() {
 
   const [autoSendMessage, setAutoSendMessage] = useState<string | null>(null);
   const [hasCompiledOnMount, setHasCompiledOnMount] = useState(false);
+  const [imageUploadOpen, setImageUploadOpen] = useState(false);
 
   // cancel any pending auto-save when switching files
   useEffect(() => {
@@ -136,6 +141,25 @@ export default function ProjectPage() {
     [projectFiles]
   );
 
+  const { handleImageUpload: uploadImage } = useImageUpload({
+    content,
+    onSuggestion: handleEditSuggestion,
+    finalizeEdits,
+    projectFiles: projectFileContext,
+    currentFilePath: selectedFile?.name || null,
+    projectId,
+  });
+
+  // wrap image upload to refresh file list after upload
+  const handleImageUpload = useCallback(
+    async (data: Parameters<typeof uploadImage>[0]) => {
+      await uploadImage(data);
+      // refresh file list
+      await mutateFiles();
+    },
+    [uploadImage, mutateFiles]
+  );
+
   useEffect(() => {
     FileActions.reset();
     setHasCompiledOnMount(false);
@@ -143,8 +167,13 @@ export default function ProjectPage() {
 
   useEffect(() => {
     if (filesData) {
-      FileActions.init(filesData);
+      if (!projectFiles || projectFiles.length === 0) {
+        FileActions.init(filesData);
+      } else {
+        FileActions.setProjectFiles(filesData);
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filesData]);
 
   useEffect(() => {
@@ -202,6 +231,7 @@ export default function ProjectPage() {
       }
     },
     onTextFormat: handleTextFormat,
+    onImageUpload: () => setImageUploadOpen(true),
   });
 
   if (isProjectLoading || isFilesLoading) return <LoadingState />;
@@ -226,6 +256,7 @@ export default function ProjectPage() {
           }
           setChatOpen(true);
         }}
+        onOpenImageUpload={() => setImageUploadOpen(true)}
         compiling={compiling}
         exporting={exporting}
         isSaving={isSaving}
@@ -350,6 +381,13 @@ export default function ProjectPage() {
         currentFilePath={selectedFile?.name ?? null}
         autoSendMessage={autoSendMessage}
         setAutoSendMessage={setAutoSendMessage}
+      />
+
+      <ImageUploadModal
+        open={imageUploadOpen}
+        onOpenChange={setImageUploadOpen}
+        onSubmit={handleImageUpload}
+        subsections={getSubsectionFiles(projectFiles || [])}
       />
     </div>
   );

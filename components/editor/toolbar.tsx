@@ -14,6 +14,7 @@ import {
   ChevronDown,
   FileText,
   FolderArchive,
+  ImagePlus,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -23,6 +24,7 @@ interface EditorToolbarProps {
   onExportPDF: () => void;
   onExportZIP: () => void;
   onOpenChat: () => void;
+  onOpenImageUpload: () => void;
   compiling: boolean;
   exporting: boolean;
   isSaving: boolean;
@@ -36,6 +38,7 @@ export function EditorToolbar({
   onExportPDF,
   onExportZIP,
   onOpenChat,
+  onOpenImageUpload,
   compiling,
   exporting,
   isSaving,
@@ -81,6 +84,17 @@ export function EditorToolbar({
           >
             <WandSparkles className="h-3.5 w-3.5" />
             <span className="font-medium">Edit with AI</span>
+          </Button>
+
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onOpenImageUpload}
+            className="h-8 gap-1.5 border-slate-300 bg-gradient-to-b from-pink-500 to-pink-600 px-3 text-white hover:bg-gradient-to-b hover:from-pink-600/90 hover:to-pink-700/90"
+            title="Upload Image (⌘U)"
+          >
+            <ImagePlus className="h-3.5 w-3.5" />
+            <span className="font-medium">Upload Image</span>
           </Button>
         </div>
 

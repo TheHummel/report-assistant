@@ -62,6 +62,34 @@ export const FileActions = {
     setState(DEFAULT_STATE);
   },
 
+  setProjectFiles: (files: ProjectFile[]) => {
+    const { selectedFile, projectFiles: currentFiles } = getState();
+
+    // if currently selected file, preserve its in-memory content
+    if (selectedFile && currentFiles) {
+      const currentSelectedFile = currentFiles.find(
+        (f) => f.file.id === selectedFile.id
+      );
+      if (currentSelectedFile?.document) {
+        // merge: update file list but keep current file's content
+        const updatedFiles = files.map((f) => {
+          if (f.file.id === selectedFile.id) {
+            return {
+              ...f,
+              document: currentSelectedFile.document, // preserve in-memory content
+            };
+          }
+          return f;
+        });
+        setState({ projectFiles: updatedFiles });
+        return;
+      }
+    }
+
+    // default: just update files
+    setState({ projectFiles: files });
+  },
+
   init: (files: ProjectFile[]) => {
     const selectedFile = selectInitialFile(files);
     setState({ projectFiles: files, selectedFile });

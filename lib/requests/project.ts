@@ -114,7 +114,10 @@ export const getProjectFiles = async (
           const chunkSize = 32768; // Process 32KB at a time
           for (let i = 0; i < uint8Array.length; i += chunkSize) {
             const chunk = uint8Array.subarray(i, i + chunkSize);
-            binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+            binary += String.fromCharCode.apply(
+              null,
+              chunk as unknown as number[]
+            );
           }
           content = btoa(binary);
         } else {
@@ -328,4 +331,55 @@ export const renameFolder = async (
   if (gitkeepMoveError) {
     throw new Error('Failed to rename folder');
   }
+};
+
+/**
+ * Upload an image file to the project's Images folder
+ */
+export const uploadImageToProject = async (
+  projectId: string,
+  imageFile: File,
+  fileName: string
+): Promise<string> => {
+  const supabase = createClient();
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user) {
+    throw new Error('User not authenticated');
+  }
+
+  // upload to Images folder
+  const filePath = `Images/${fileName}`;
+  const fullPath = `projects/${projectId}/${filePath}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('octree')
+    .upload(fullPath, imageFile, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(`Failed to upload image: ${uploadError.message}`);
+  }
+
+  return filePath;
+};
+
+/**
+ * Convert base64 data URL to File object
+ */
+export const dataUrlToFile = (dataUrl: string, fileName: string): File => {
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], fileName, { type: mime });
 };
