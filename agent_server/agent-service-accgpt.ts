@@ -14,9 +14,7 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
-// @ts-expect-error - express types are provided at runtime on the server deployment
 import express from 'express';
-// @ts-expect-error - cors types are provided at runtime on the server deployment
 import cors from 'cors';
 import {
   buildNumberedContent,
@@ -38,7 +36,7 @@ import type { IntentResult } from './lib/octra-agent/intent-inference';
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 // ============================================================================
 // Configuration
@@ -84,7 +82,8 @@ async function callACCGPT(request: ACCGPTRequest): Promise<ACCGPTResponse> {
     throw new Error(`ACCGPT API error (${response.status}): ${errorText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  return data as ACCGPTResponse;
 }
 
 /**
