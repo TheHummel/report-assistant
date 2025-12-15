@@ -32,18 +32,30 @@ export async function acceptSingleEdit(
     const startLineNumber = getStartLine(suggestion);
     const originalLineCount = getOriginalLineCount(suggestion);
     const suggestedText = getSuggestedText(suggestion);
+    const modelLineCount = model.getLineCount();
+
+    // clamp line number to valid range
+    const actualStartLine = Math.min(startLineNumber, modelLineCount + 1);
 
     const endLineNumber =
       originalLineCount > 0
-        ? startLineNumber + originalLineCount - 1
-        : startLineNumber;
+        ? actualStartLine + originalLineCount - 1
+        : actualStartLine;
+
+    // for insert at line beyond file end, insert at end of last line
     const endColumn =
-      originalLineCount > 0 ? model.getLineMaxColumn(endLineNumber) : 1;
+      originalLineCount > 0
+        ? model.getLineMaxColumn(Math.min(endLineNumber, modelLineCount))
+        : actualStartLine <= modelLineCount
+          ? 1
+          : model.getLineMaxColumn(modelLineCount);
 
     const rangeToReplace = new monacoInstance.Range(
-      startLineNumber,
-      1,
-      endLineNumber,
+      actualStartLine <= modelLineCount ? actualStartLine : modelLineCount,
+      actualStartLine <= modelLineCount
+        ? 1
+        : model.getLineMaxColumn(modelLineCount),
+      Math.min(endLineNumber, modelLineCount),
       endColumn
     );
 
@@ -58,7 +70,7 @@ export async function acceptSingleEdit(
 
     // Rebase remaining suggestions to account for line shifts
     const deltaLines = computeDeltaLines(suggestedText, originalLineCount);
-    const acceptedStart = startLineNumber;
+    const acceptedStart = actualStartLine;
     const acceptedEnd = endLineNumber;
 
     onUpdate((prev) => {
