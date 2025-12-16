@@ -68,10 +68,11 @@ This project uses Supabase for authentication and data storage. You need to:
 
 1. **Create a Supabase project** at [supabase.com](https://supabase.com)
 2. **Run migrations** (located in `supabase/migrations/`):
+
    ```bash
    # If using Supabase CLI locally
    supabase db push
-   
+
    # Or manually run the SQL files in the Supabase SQL Editor:
    # - 001_add_user_usage_table.sql
    # - 002_add_monthly_limits.sql
@@ -89,10 +90,32 @@ The app can compile LaTeX to PDF locally using Docker in development mode:
    docker pull texlive/texlive
    ```
 
-> **Note**: 
+> **Note**:
+>
 > - If Docker is not installed or not running, the app automatically falls back to the remote compilation service
 > - In production (`ENVIRONMENT=prod`), the app always uses the remote compilation service
 > - Docker is recommended for faster local compilation, but **not required**
+
+#### Alternatively, run octree-compile locally
+
+Short instructions to run the octree-compile service locally:
+
+```bash
+# Clone the repo
+git clone https://github.com/octree-labs/octree-compile.git
+cd octree-compile
+
+# run with docker
+docker build -t octree-compile .
+docker run -d -p 3001:3001 octree-compile
+
+# Or run with Go
+go mod download    # ensure dependencies
+make run           # hot-reload dev server on http://localhost:3001
+# or build and run the binary:
+make build
+./latex-compile
+```
 
 ### 6. Run the Development Server
 
@@ -147,6 +170,7 @@ ai-latex-editor/
 ## Troubleshooting
 
 ### Docker Issues
+
 - **Docker is optional** - the app will automatically use the remote service if Docker is unavailable
 - If you want to use Docker locally:
   - Ensure Docker Desktop is running
@@ -155,11 +179,13 @@ ai-latex-editor/
 - If compilation fails, check the browser console for error details
 
 ### Database Connection
+
 - Verify Supabase credentials in `.env.local`
 - Check if migrations have been run
 - Ensure your IP is allowed in Supabase project settings
 
 ### API Keys
+
 - Ensure all required API keys are set in `.env.local`
 - Check API key permissions and quotas
 - Verify keys are not expired
