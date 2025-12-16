@@ -10,6 +10,7 @@ import { useEditorCompilation } from '@/hooks/use-editor-compilation';
 import { useEditSuggestions } from '@/hooks/use-edit-suggestions';
 import { useEditorInteractions } from '@/hooks/use-editor-interactions';
 import { useEditorKeyboardShortcuts } from '@/hooks/use-editor-keyboard-shortcuts';
+import { useReportInitialization } from '@/hooks/use-report-initialization';
 import { MonacoEditor } from '@/components/editor/monaco-editor';
 import { EditorToolbar } from '@/components/editor/toolbar';
 import { SelectionButton } from '@/components/editor/selection-button';
@@ -81,6 +82,14 @@ export default function ProjectPage() {
   const [autoSendMessage, setAutoSendMessage] = useState<string | null>(null);
   const [hasCompiledOnMount, setHasCompiledOnMount] = useState(false);
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
+  const [initializationMode, setInitializationMode] = useState(false);
+
+  // report-initialization state
+  const {
+    state: reportInitState,
+    updateRequiredField,
+    updateSection,
+  } = useReportInitialization(projectId);
 
   // cancel any pending auto-save when switching files
   useEffect(() => {
@@ -215,6 +224,18 @@ export default function ProjectPage() {
     [handleEditSuggestion]
   );
 
+  const handleUpdateReportField = useCallback(
+    (key: string, value: string, category: string) => {
+      if (category === 'required_fields') {
+        updateRequiredField(key as any, value);
+      } else if (category === 'sections') {
+        const status = value.length > 0 ? 'complete' : 'partial';
+        updateSection(key as any, status, value);
+      }
+    },
+    [updateRequiredField, updateSection]
+  );
+
   useEditorKeyboardShortcuts({
     editor: editorRef.current,
     monacoInstance: monacoRef.current,
@@ -250,10 +271,8 @@ export default function ProjectPage() {
         onCompile={handleCompile}
         onExportPDF={handleExportPDF}
         onExportZIP={handleExportZIP}
-        onOpenChat={() => {
-          if (selectedText.trim()) {
-            setTextFromEditor(selectedText);
-          }
+        onOpenReportInitialization={() => {
+          setInitializationMode(true);
           setChatOpen(true);
         }}
         onOpenImageUpload={() => setImageUploadOpen(true)}
@@ -368,7 +387,13 @@ export default function ProjectPage() {
 
       <Chat
         isOpen={chatOpen}
-        setIsOpen={setChatOpen}
+        setIsOpen={(open) => {
+          setChatOpen(open);
+          if (!open) {
+            // reset initialization mode when chat is closed
+            setInitializationMode(false);
+          }
+        }}
         onEditSuggestion={handleSuggestionFromChat}
         onAcceptAllEdits={handleAcceptAllEdits}
         onFinalizeEdits={finalizeEdits}
@@ -381,6 +406,9 @@ export default function ProjectPage() {
         currentFilePath={selectedFile?.name ?? null}
         autoSendMessage={autoSendMessage}
         setAutoSendMessage={setAutoSendMessage}
+        initializationMode={initializationMode}
+        reportInitState={reportInitState}
+        onUpdateReportField={handleUpdateReportField}
       />
 
       <ImageUploadModal

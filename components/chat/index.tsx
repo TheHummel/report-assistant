@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, X, CheckCheck } from 'lucide-react';
+import {
+  Loader2,
+  X,
+  CheckCheck,
+  ChevronsRight,
+  ChevronRight,
+} from 'lucide-react';
 import { OctreeLogo } from '@/components/icons/octree-logo';
 import { EditSuggestion } from '@/types/edit';
 import { useChatStream } from './use-chat-stream';
@@ -11,6 +17,8 @@ import { useFileAttachments } from './use-file-attachments';
 import { ChatMessageComponent } from './chat-message';
 import { ChatInput, ChatInputRef } from './chat-input';
 import { EmptyState } from './empty-state';
+import { InitializationChecklist } from './initialization-checklist';
+import { REPORT_QUESTIONS } from '@/types/report-initialization';
 
 interface ChatProps {
   onEditSuggestion: (edit: EditSuggestion | EditSuggestion[]) => void;
@@ -32,6 +40,9 @@ interface ChatProps {
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   autoSendMessage?: string | null;
   setAutoSendMessage?: (message: string | null) => void;
+  initializationMode?: boolean;
+  reportInitState?: any;
+  onUpdateReportField?: (key: string, value: string, category: string) => void;
 }
 
 interface ChatMessage {
@@ -55,6 +66,9 @@ export function Chat({
   currentFilePath = null,
   autoSendMessage,
   setAutoSendMessage,
+  initializationMode = false,
+  reportInitState,
+  onUpdateReportField,
 }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -62,6 +76,9 @@ export function Chat({
   const [conversionStatus, setConversionStatus] = useState<string | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [isMac, setIsMac] = useState(true);
+  const [isInQuestioningMode, setIsInQuestioningMode] = useState(false);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef<boolean>(true);
@@ -135,6 +152,54 @@ export function Chat({
 
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
+
+    // logic for report-initialization mode
+    if (initializationMode && isInQuestioningMode && onUpdateReportField) {
+      const currentQuestion = REPORT_QUESTIONS[currentQuestionIndex];
+      if (currentQuestion) {
+        // save the answer
+        onUpdateReportField(
+          currentQuestion.key,
+          trimmed,
+          currentQuestion.category
+        );
+
+        const userMsg: ChatMessage = {
+          id: `${Date.now()}-user`,
+          role: 'user',
+          content: trimmed,
+        };
+        setMessages((prev) => [...prev, userMsg]);
+        setInput('');
+
+        // move to next question or finish
+        if (currentQuestionIndex < REPORT_QUESTIONS.length - 1) {
+          const nextQuestion = REPORT_QUESTIONS[currentQuestionIndex + 1];
+          setCurrentQuestionIndex(currentQuestionIndex + 1);
+
+          const assistantMsg: ChatMessage = {
+            id: `${Date.now()}-assistant`,
+            role: 'assistant',
+            content: nextQuestion.question,
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+          scrollToBottom();
+        } else {
+          // all questions answered
+          const assistantMsg: ChatMessage = {
+            id: `${Date.now()}-assistant`,
+            role: 'assistant',
+            content:
+              "Great! I've collected all information. You can now generate report suggestions, or continue adding more details by answering specific questions.",
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+          setIsInQuestioningMode(false);
+          scrollToBottom();
+        }
+
+        return;
+      }
+    }
 
     setError(null);
 
@@ -355,6 +420,153 @@ export function Chat({
 
   const clearHistory = () => {
     setMessages([]);
+    setIsInQuestioningMode(false);
+    setCurrentQuestionIndex(0);
+    setIsGeneratingSuggestions(false);
+  };
+
+  const handleSkipQuestion = () => {
+    if (!isInQuestioningMode) return;
+
+    // show skip message
+    const skipMsg: ChatMessage = {
+      id: `${Date.now()}-user`,
+      role: 'user',
+      content: '(skipped)',
+    };
+    setMessages((prev) => [...prev, skipMsg]);
+
+    // move to next question or finish
+    if (currentQuestionIndex < REPORT_QUESTIONS.length - 1) {
+      const nextQuestion = REPORT_QUESTIONS[currentQuestionIndex + 1];
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+
+      const assistantMsg: ChatMessage = {
+        id: `${Date.now()}-assistant`,
+        role: 'assistant',
+        content: nextQuestion.question,
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      scrollToBottom();
+    } else {
+      // all questions done
+      const assistantMsg: ChatMessage = {
+        id: `${Date.now()}-assistant`,
+        role: 'assistant',
+        content:
+          "That's all the questions! You can now generate report suggestions with the information you've provided.",
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      setIsInQuestioningMode(false);
+      scrollToBottom();
+    }
+  };
+
+  const handleStartQuestioning = () => {
+    // find first unanswered question
+    let startIndex = 0;
+    if (reportInitState) {
+      for (let i = 0; i < REPORT_QUESTIONS.length; i++) {
+        const q = REPORT_QUESTIONS[i];
+        const hasAnswer =
+          q.category === 'required_fields'
+            ? !!reportInitState.required_fields[q.key]
+            : reportInitState.sections[q.key]?.status !== 'missing';
+
+        if (!hasAnswer) {
+          startIndex = i;
+          break;
+        }
+      }
+    }
+
+    setCurrentQuestionIndex(startIndex);
+    setIsInQuestioningMode(true);
+
+    const firstQuestion = REPORT_QUESTIONS[startIndex];
+    const welcomeMsg: ChatMessage = {
+      id: `${Date.now()}-assistant`,
+      role: 'assistant',
+      content:
+        startIndex === 0
+          ? `Hi! I'll help you initialize your radiation test report. Let's start by gathering some essential information.\\n\\n${firstQuestion.question}`
+          : `Let's continue gathering information for your report.\\n\\n${firstQuestion.question}`,
+    };
+
+    setMessages([welcomeMsg]);
+    scrollToBottom();
+  };
+
+  const handleGenerateSuggestions = async () => {
+    if (!reportInitState) return;
+
+    setIsGeneratingSuggestions(true);
+
+    // build context from collected information
+    let contextMessage =
+      "Based on the information you provided, here's what I'll use to generate report suggestions:\\n\\n";
+
+    // add required fields
+    contextMessage += '**Required Fields:**\\n';
+    Object.entries(reportInitState.required_fields).forEach(([key, value]) => {
+      if (value) {
+        const label = key
+          .replace(/_/g, ' ')
+          .replace(/\\b\\w/g, (l) => l.toUpperCase());
+        contextMessage += `- ${label}: ${value}\\n`;
+      }
+    });
+
+    // add sections
+    const completedSections = Object.entries(reportInitState.sections).filter(
+      ([_, section]: [string, any]) => section.content
+    );
+    if (completedSections.length > 0) {
+      contextMessage += '\\n**Additional Information:**\\n';
+      completedSections.forEach(([key, section]: [string, any]) => {
+        const label = key
+          .replace(/_/g, ' ')
+          .replace(/\\b\\w/g, (l) => l.toUpperCase());
+        contextMessage += `- ${label}: ${section.content}\\n`;
+      });
+    }
+
+    contextMessage +=
+      '\\nGenerating LaTeX code suggestions for your radiation test report...';
+
+    const contextMsg: ChatMessage = {
+      id: `${Date.now()}-user`,
+      role: 'user',
+      content:
+        'Generate report suggestions based on the information I provided.',
+    };
+    setMessages((prev) => [...prev, contextMsg]);
+
+    // build prompt
+    const generationPrompt = `I need you to generate LaTeX code edits for a radiation test report based on this information:
+
+${Object.entries(reportInitState.required_fields)
+  .filter(([_, value]) => value)
+  .map(([key, value]) => `${key}: ${value}`)
+  .join('\\n')}
+
+${completedSections.map(([key, section]: [string, any]) => `${key}: ${section.content}`).join('\n')}
+
+Please generate appropriate edits for the report template files, specifically:
+- Update Inputs/inputs.tex with the provided information
+- Generate content for relevant subsections based on what was provided
+- Ensure all LaTeX formatting is correct`;
+
+    setIsInQuestioningMode(false);
+    setInput(generationPrompt);
+
+    // trigger the regular chat submission flow
+    setTimeout(() => {
+      if (formRef.current) {
+        formRef.current.requestSubmit();
+      }
+      setIsGeneratingSuggestions(false);
+    }, 100);
   };
 
   if (!isOpen) {
@@ -428,7 +640,19 @@ export function Chat({
           className="min-h-[300px] flex-1 overflow-y-auto overflow-x-hidden p-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-neutral-300"
         >
           {messages.length === 0 && !isLoading && !conversionStatus && (
-            <EmptyState />
+            <>
+              {initializationMode && reportInitState ? (
+                <InitializationChecklist
+                  state={reportInitState}
+                  onStartQuestioning={handleStartQuestioning}
+                  onGenerateSuggestions={handleGenerateSuggestions}
+                  onUpdateField={onUpdateReportField || (() => {})}
+                  isGenerating={isGeneratingSuggestions}
+                />
+              ) : (
+                <EmptyState />
+              )}
+            </>
           )}
           {messages.map((message) => (
             <ChatMessageComponent
@@ -449,6 +673,32 @@ export function Chat({
             </div>
           )}
         </div>
+
+        {isInQuestioningMode && initializationMode && (
+          <div className="px-4 py-2">
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSkipQuestion}
+                className="flex-1"
+              >
+                <ChevronRight /> Skip
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setIsInQuestioningMode(false);
+                  setMessages([]);
+                }}
+                className="flex-1"
+              >
+                <ChevronsRight /> Done
+              </Button>
+            </div>
+          </div>
+        )}
 
         <ChatInput
           ref={chatInputRef}

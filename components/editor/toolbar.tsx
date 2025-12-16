@@ -23,7 +23,7 @@ interface EditorToolbarProps {
   onCompile: () => void;
   onExportPDF: () => void;
   onExportZIP: () => void;
-  onOpenChat: () => void;
+  onOpenReportInitialization: () => void;
   onOpenImageUpload: () => void;
   compiling: boolean;
   exporting: boolean;
@@ -37,7 +37,7 @@ export function EditorToolbar({
   onCompile,
   onExportPDF,
   onExportZIP,
-  onOpenChat,
+  onOpenReportInitialization,
   onOpenImageUpload,
   compiling,
   exporting,
@@ -78,12 +78,12 @@ export function EditorToolbar({
           <Button
             variant="default"
             size="sm"
-            onClick={onOpenChat}
+            onClick={onOpenReportInitialization}
             className="h-8 gap-1.5 border-slate-300 bg-gradient-to-b from-primary-light to-primary px-3 text-white hover:bg-gradient-to-b hover:from-primary-light/90 hover:to-primary/90"
-            title="Edit with AI (⌘B)"
+            title="Initialize with AI (⌘B)"
           >
             <WandSparkles className="h-3.5 w-3.5" />
-            <span className="font-medium">Edit with AI</span>
+            <span className="font-medium">Initialize with AI</span>
           </Button>
 
           <Button
