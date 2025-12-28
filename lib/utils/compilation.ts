@@ -70,6 +70,19 @@ export async function processFileContent(
   return fileEntry;
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 32768;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+  }
+
+  return btoa(binary);
+}
+
 export async function makeCompilationRequest(
   filesPayload: Array<{ path: string; content: string; encoding?: string }>,
   normalizedFileName: string,
@@ -86,13 +99,25 @@ export async function makeCompilationRequest(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody),
   });
-
-  const raw = await response.text();
+  const contentType = response.headers.get('content-type')?.toLowerCase() || '';
   let data: any;
+
   try {
-    data = JSON.parse(raw);
+    if (contentType.includes('application/json')) {
+      data = await response.json();
+    } else if (contentType.includes('application/pdf')) {
+      const buffer = await response.arrayBuffer();
+      data = { pdf: arrayBufferToBase64(buffer) };
+    } else {
+      const raw = await response.text();
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = { raw };
+      }
+    }
   } catch (parseError) {
-    throw new Error('Unexpected response from compilation service');
+    data = { error: 'Failed to read compilation response', details: String(parseError) };
   }
 
   return { response, data };
