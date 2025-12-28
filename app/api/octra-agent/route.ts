@@ -105,6 +105,14 @@ export async function POST(request: Request) {
               const eventType = eventMatch[1];
               console.log(`[Octra Proxy] Event received: ${eventType}`);
 
+              // Log error event payloads
+              if (eventType === 'error' && dataMatch) {
+                console.error(
+                  '[Octra Proxy] Error event payload:',
+                  dataMatch[1]
+                );
+              }
+
               // Log tool events in detail
               if (eventType === 'tool' && dataMatch) {
                 try {
