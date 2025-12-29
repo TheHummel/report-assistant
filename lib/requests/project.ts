@@ -278,6 +278,42 @@ export const createFolder = async (
   }
 };
 
+async function listFolderFilesRecursively(
+  supabase: any,
+  projectId: string,
+  folderPath: string
+): Promise<string[]> {
+  const listPath = `projects/${projectId}/${folderPath}`;
+  const { data: items, error } = await supabase.storage
+    .from('octree')
+    .list(listPath);
+
+  if (error || !items) {
+    console.error('Error listing folder:', error);
+    return [];
+  }
+
+  const allFiles: string[] = [];
+
+  for (const item of items) {
+    const itemPath = `${folderPath}/${item.name}`;
+    if (item.id) {
+      // file
+      allFiles.push(itemPath);
+    } else {
+      // subfolder; recurse
+      const subFiles = await listFolderFilesRecursively(
+        supabase,
+        projectId,
+        itemPath
+      );
+      allFiles.push(...subFiles);
+    }
+  }
+
+  return allFiles;
+}
+
 export const renameFolder = async (
   projectId: string,
   currentPath: string,
@@ -293,43 +329,72 @@ export const renameFolder = async (
     throw new Error('User not authenticated');
   }
 
-  const { data: files, error: listError } = await supabase.storage
-    .from('octree')
-    .list(`projects/${projectId}`, {
-      search: currentPath,
-    });
-
-  if (listError || !files) {
-    throw new Error('Failed to list folder contents');
-  }
-
-  const filesToMove = files.filter((file) =>
-    file.name.startsWith(currentPath + '/')
+  // list all files recursively
+  const filesToMove = await listFolderFilesRecursively(
+    supabase,
+    projectId,
+    currentPath
   );
 
-  for (const file of filesToMove) {
-    const relativePath = file.name.substring(currentPath.length + 1);
-    const oldPath = `projects/${projectId}/${currentPath}/${relativePath}`;
-    const newFilePath = `projects/${projectId}/${newPath}/${relativePath}`;
+  if (filesToMove.length === 0) {
+    throw new Error('Folder is empty or does not exist');
+  }
+
+  // Move all files to new location
+  for (const filePath of filesToMove) {
+    // calc relative path within the folder
+    const relativePath = filePath.substring(currentPath.length + 1);
+    const oldFullPath = `projects/${projectId}/${filePath}`;
+    const newFullPath = `projects/${projectId}/${newPath}/${relativePath}`;
 
     const { error: moveError } = await supabase.storage
       .from('octree')
-      .move(oldPath, newFilePath);
+      .move(oldFullPath, newFullPath);
 
     if (moveError) {
-      throw new Error(`Failed to move file: ${file.name}`);
+      console.error('Move error for', filePath, ':', moveError);
+      throw new Error(`Failed to move file: ${filePath}`);
     }
   }
+};
 
-  const gitkeepOldPath = `projects/${projectId}/${currentPath}/.gitkeep`;
-  const gitkeepNewPath = `projects/${projectId}/${newPath}/.gitkeep`;
+export const deleteFolder = async (
+  projectId: string,
+  folderPath: string
+): Promise<void> => {
+  const supabase = createClient();
 
-  const { error: gitkeepMoveError } = await supabase.storage
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session?.user) {
+    throw new Error('User not authenticated');
+  }
+
+  // list all files recursively
+  const filesToDelete = await listFolderFilesRecursively(
+    supabase,
+    projectId,
+    folderPath
+  );
+
+  if (filesToDelete.length === 0) {
+    throw new Error('Folder is empty or does not exist');
+  }
+
+  // delete all files
+  const fullPaths = filesToDelete.map(
+    (path) => `projects/${projectId}/${path}`
+  );
+
+  const { error: deleteError } = await supabase.storage
     .from('octree')
-    .move(gitkeepOldPath, gitkeepNewPath);
+    .remove(fullPaths);
 
-  if (gitkeepMoveError) {
-    throw new Error('Failed to rename folder');
+  if (deleteError) {
+    console.error('Delete error:', deleteError);
+    throw new Error('Failed to delete folder contents');
   }
 };
 
