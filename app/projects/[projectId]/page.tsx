@@ -73,6 +73,7 @@ export default function ProjectPage() {
     isSaving,
     lastSaved,
     handleSaveDocument,
+    handleSaveAllModified,
     debouncedSave,
     cancelPendingSave,
   } = useDocumentSave();
@@ -242,7 +243,10 @@ export default function ProjectPage() {
     onSave: async (currentContent: string) => {
       const compiled = await handleCompile();
       if (compiled) {
+        // update current file content first
         await handleSaveDocument(currentContent);
+        // save all other modified files
+        await handleSaveAllModified();
       }
     },
     onCopy: () => {

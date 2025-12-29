@@ -20,6 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import type { ProjectFile } from '@/hooks/use-file-editor';
 import { useFileTreeStore, FileTreeActions } from '@/stores/file-tree';
+import { useModifiedFiles } from '@/stores/file';
 
 interface FileNode {
   name: string;
@@ -194,6 +195,8 @@ function FileTreeNode({
   }
 
   const isSelected = selectedFileId === node.file?.id;
+  const modifiedFiles = useModifiedFiles();
+  const isModified = node.file ? modifiedFiles.has(node.file.id) : false;
 
   return (
     <div className="flex items-center gap-1">
@@ -206,6 +209,7 @@ function FileTreeNode({
       >
         <span className={cn('truncate', isSelected && 'font-medium')}>
           {node.name}
+          {isModified && <span className="ml-1 text-orange-500">*</span>}
         </span>
       </File>
       <DropdownMenu>

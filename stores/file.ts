@@ -4,11 +4,13 @@ import type { ProjectFile, FileData } from '@/hooks/use-file-editor';
 type FileStoreState = {
   selectedFile: FileData | null;
   projectFiles: ProjectFile[] | null;
+  modifiedFiles: Set<string>; // track file IDs with unsaved changes
 };
 
 const DEFAULT_STATE: FileStoreState = {
   selectedFile: null,
   projectFiles: null,
+  modifiedFiles: new Set(),
 };
 
 export const useFileStore = create<FileStoreState>(() => DEFAULT_STATE);
@@ -30,6 +32,16 @@ export const useFileContent = () => {
   });
 };
 
+export const useModifiedFiles = () => {
+  return useFileStore((state) => state.modifiedFiles);
+};
+
+export const useIsFileModified = (fileId: string | null | undefined) => {
+  return useFileStore((state) =>
+    fileId ? state.modifiedFiles.has(fileId) : false
+  );
+};
+
 const getState = useFileStore.getState;
 const setState = useFileStore.setState;
 
@@ -39,7 +51,7 @@ export const FileActions = {
   },
 
   setContent: (content: string) => {
-    const { selectedFile, projectFiles } = getState();
+    const { selectedFile, projectFiles, modifiedFiles } = getState();
 
     if (!selectedFile || !projectFiles) {
       return;
@@ -55,11 +67,75 @@ export const FileActions = {
       return projectFile;
     });
 
-    setState({ projectFiles: updatedFiles });
+    // mark file as modified
+    const newModifiedFiles = new Set(modifiedFiles);
+    newModifiedFiles.add(selectedFile.id);
+
+    setState({ projectFiles: updatedFiles, modifiedFiles: newModifiedFiles });
   },
 
   reset: () => {
     setState(DEFAULT_STATE);
+  },
+
+  markFileSaved: (fileId: string) => {
+    const { modifiedFiles } = getState();
+    const newModifiedFiles = new Set(modifiedFiles);
+    newModifiedFiles.delete(fileId);
+    setState({ modifiedFiles: newModifiedFiles });
+  },
+
+  markFileModified: (fileId: string) => {
+    const { modifiedFiles } = getState();
+    const newModifiedFiles = new Set(modifiedFiles);
+    newModifiedFiles.add(fileId);
+    setState({ modifiedFiles: newModifiedFiles });
+  },
+
+  updateFileContent: (fileId: string, content: string) => {
+    const { projectFiles, modifiedFiles } = getState();
+
+    if (!projectFiles) return;
+
+    const updatedFiles = projectFiles.map((projectFile) => {
+      if (projectFile.file.id === fileId && projectFile.document) {
+        return {
+          ...projectFile,
+          document: { ...projectFile.document, content },
+        };
+      }
+      return projectFile;
+    });
+
+    // Mark file as modified
+    const newModifiedFiles = new Set(modifiedFiles);
+    newModifiedFiles.add(fileId);
+
+    setState({ projectFiles: updatedFiles, modifiedFiles: newModifiedFiles });
+  },
+
+  getModifiedFilesData: (): Array<{
+    fileId: string;
+    fileName: string;
+    content: string;
+  }> => {
+    const { modifiedFiles, projectFiles } = getState();
+    if (!projectFiles) return [];
+
+    return Array.from(modifiedFiles)
+      .map((fileId) => {
+        const projectFile = projectFiles.find((f) => f.file.id === fileId);
+        if (!projectFile?.document) return null;
+        return {
+          fileId,
+          fileName: projectFile.file.name,
+          content: projectFile.document.content,
+        };
+      })
+      .filter(
+        (f): f is { fileId: string; fileName: string; content: string } =>
+          f !== null
+      );
   },
 
   setProjectFiles: (files: ProjectFile[]) => {

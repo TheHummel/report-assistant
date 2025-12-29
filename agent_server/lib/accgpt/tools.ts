@@ -51,21 +51,21 @@ export const PROPOSE_EDITS_TOOL: ACCGPTToolDefinition = {
   function: {
     name: 'propose_edits',
     description:
-      'Propose JSON-structured line-based edits to LaTeX files. Each edit specifies a file path (optional, defaults to current file), line number, and operation (insert, delete, or replace). The user will review and accept/reject these edits.',
+      'Propose JSON-structured line-based edits to LaTeX files. Each edit can specify a file path (optional, defaults to current file), line number, and operation (insert, delete, or replace). The user will review and accept/reject these edits.',
     parameters: {
       type: 'object',
       properties: {
-        filePath: {
-          type: 'string',
-          description:
-            'Optional: Path of the file to edit. If not provided, edits apply to the current file. Use paths from the project structure (e.g., "references.bib", "sections/introduction.tex").',
-        },
         edits: {
           type: 'array',
           description: 'Array of edit operations to propose',
           items: {
             type: 'object',
             properties: {
+              filePath: {
+                type: 'string',
+                description:
+                  'Optional: Path of the file to edit for this specific edit. Overrides the top-level filePath. Use paths from the project structure (e.g., "references.bib", "sections/introduction.tex").',
+              },
               editType: {
                 type: 'string',
                 enum: ['insert', 'delete', 'replace'],
@@ -245,13 +245,13 @@ function executeProposeEdits(
   context: ToolExecutionContext
 ): ToolResult {
   const { agentContext, intent, collectedEdits, writeEvent } = context;
-  const requestedFilePath = args.filePath as string | undefined;
   const edits = args.edits as Array<{
     editType: 'insert' | 'delete' | 'replace';
     content?: string;
     position: { line: number };
     originalLineCount?: number;
     explanation?: string;
+    filePath?: string; // target file path (defaults to current file if not specified)
   }>;
 
   if (!Array.isArray(edits) || edits.length === 0) {
@@ -261,76 +261,103 @@ function executeProposeEdits(
     };
   }
 
-  // determine target file content for validation
-  let targetFileContent: string;
-  let targetFilePath: string;
+  // group edits by target file
+  const editsByFile = new Map<string, typeof edits>();
 
-  if (requestedFilePath) {
-    const targetFile = agentContext.projectFiles?.find(
-      (f) => f.path === requestedFilePath
-    );
+  for (const edit of edits) {
+    // determine target file: per-edit filePath or current file
+    const targetPath =
+      edit.filePath || agentContext.currentFilePath || 'current';
+    const existing = editsByFile.get(targetPath) || [];
+    editsByFile.set(targetPath, [...existing, edit]);
+  }
 
-    if (!targetFile) {
-      writeEvent('tool', {
-        name: 'propose_edits',
-        error: 'file_not_found',
-        requestedPath: requestedFilePath,
-      });
-      return {
-        tool_call_id: toolCallId,
-        content: JSON.stringify({
-          error: `Cannot edit file: ${requestedFilePath} not found in project`,
-          availableFiles: agentContext.projectFiles?.map((f) => f.path) || [],
-        }),
-      };
+  let totalAccepted = 0;
+  let totalViolations = 0;
+  const fileResults: string[] = [];
+  const allEditsWithFilePath: LineEdit[] = [];
+
+  // process edits for each file
+  for (const [targetFilePath, fileEdits] of editsByFile.entries()) {
+    // get target file content for validation
+    let targetFileContent: string;
+
+    if (
+      targetFilePath === 'current' ||
+      targetFilePath === agentContext.currentFilePath
+    ) {
+      targetFileContent = agentContext.fileContent;
+    } else {
+      const targetFile = agentContext.projectFiles?.find(
+        (f) => f.path === targetFilePath
+      );
+
+      if (!targetFile) {
+        writeEvent('tool', {
+          name: 'propose_edits',
+          error: 'file_not_found',
+          requestedPath: targetFilePath,
+        });
+        fileResults.push(`Cannot edit file: ${targetFilePath} not found`);
+        continue;
+      }
+
+      targetFileContent = targetFile.content;
     }
 
-    targetFileContent = targetFile.content;
-    targetFilePath = targetFile.path;
-  } else {
-    // default to current file
-    targetFileContent = agentContext.fileContent;
-    targetFilePath = agentContext.currentFilePath || 'current';
-  }
+    // validate edits for this file
+    const validation = validateLineEdits(fileEdits, intent, targetFileContent);
 
-  // validate edits against intent restrictions
-  const validation = validateLineEdits(edits, intent, targetFileContent);
+    // tag edits with file path and add to collection
+    const editsWithFilePath = validation.acceptedEdits.map((edit) => ({
+      ...edit,
+      filePath: targetFilePath,
+    }));
 
-  // tag edits with file path and add to collection
-  const editsWithFilePath = validation.acceptedEdits.map((edit) => ({
-    ...edit,
-    filePath: targetFilePath,
-  }));
+    allEditsWithFilePath.push(...editsWithFilePath);
+    collectedEdits.push(...editsWithFilePath);
 
-  collectedEdits.push(...editsWithFilePath);
+    const acceptedCount = validation.acceptedEdits.length;
+    const violationCount = validation.violations.length;
 
-  const totalEdits = validation.acceptedEdits.length;
+    totalAccepted += acceptedCount;
+    totalViolations += violationCount;
 
-  writeEvent('tool', {
-    name: 'propose_edits',
-    filePath: targetFilePath,
-    count: totalEdits,
-    violations: validation.violations,
-  });
-
-  if (totalEdits > 0) {
-    // emit progress for each edit
-    validation.acceptedEdits.forEach(() => {
-      writeEvent('tool', {
-        name: 'propose_edits',
-        progress: 1,
-      });
+    writeEvent('tool', {
+      name: 'propose_edits',
+      filePath: targetFilePath,
+      count: acceptedCount,
+      violations: validation.violations,
     });
 
-    // emit full batch of edits with file path
-    writeEvent('edits', editsWithFilePath);
+    if (acceptedCount > 0) {
+      fileResults.push(`${acceptedCount} edit(s) for ${targetFilePath}`);
+
+      // emit progress for each edit
+      validation.acceptedEdits.forEach(() => {
+        writeEvent('tool', {
+          name: 'propose_edits',
+          progress: 1,
+        });
+      });
+    }
+
+    if (violationCount > 0) {
+      fileResults.push(
+        `Blocked ${violationCount} edit(s) in ${targetFilePath}`
+      );
+    }
   }
 
-  const resultMessage = `Accepted ${validation.acceptedEdits.length} edit(s) for ${targetFilePath}.${
-    validation.violations.length
-      ? ` Blocked ${validation.violations.length} edit(s) due to intent restrictions.`
-      : ''
-  }`;
+  // emit all edits at once
+  if (allEditsWithFilePath.length > 0) {
+    writeEvent('edits', allEditsWithFilePath);
+  }
+
+  const resultMessage =
+    fileResults.length > 0
+      ? `Accepted ${totalAccepted} total edit(s): ${fileResults.join('; ')}`
+      : 'No edits accepted';
 
   return {
     tool_call_id: toolCallId,
