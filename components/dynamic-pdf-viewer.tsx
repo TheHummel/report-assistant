@@ -58,10 +58,6 @@ function DynamicPDFViewer({
   const [containerWidth, setContainerWidth] = useState<number>(800);
 
   useEffect(() => {
-    setZoom(1.0);
-  }, [pdfData]);
-
-  useEffect(() => {
     const updateWidth = () => {
       if (containerRef.current) {
         setContainerWidth(containerRef.current.clientWidth);
