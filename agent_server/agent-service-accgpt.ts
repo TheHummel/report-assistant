@@ -205,6 +205,15 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
     const intent: IntentResult = await inferIntent(userText);
     const collectedEdits: LineEdit[] = [];
 
+    // Prepare previous messages (excluding system messages)
+    const previousMessages = messages
+      .slice(0, -1)
+      .filter((msg: { role: string }) => msg.role !== 'system')
+      .map((msg: { role: string; content: string }) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
     // Process project files
     const projectFiles: ProjectFileContext[] = Array.isArray(
       filteredProjectFilesPayload
@@ -260,9 +269,10 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
       normalizedCurrentFilePath
     );
 
-    // Initialize conversation with system prompt and user message
+    // Initialize conversation with system prompt, previous messages, and current user message
     const conversationMessages: ACCGPTMessage[] = [
       { role: 'system', content: systemPrompt },
+      ...previousMessages,
       { role: 'user', content: userText },
     ];
 
