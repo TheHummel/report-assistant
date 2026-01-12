@@ -413,6 +413,7 @@ export default function ProjectPage() {
         initializationMode={initializationMode}
         reportInitState={reportInitState}
         onUpdateReportField={handleUpdateReportField}
+        projectId={projectId}
       />
 
       <ImageUploadModal

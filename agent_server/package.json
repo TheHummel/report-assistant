@@ -24,6 +24,8 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
+    "keyv": "^5.5.5",
+    "keyv-file": "^5.3.3",
     "zod": "^3.25.76"
   },
   "devDependencies": {

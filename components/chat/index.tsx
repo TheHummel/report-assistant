@@ -18,7 +18,7 @@ import { ChatMessageComponent } from './chat-message';
 import { ChatInput, ChatInputRef } from './chat-input';
 import { EmptyState } from './empty-state';
 import { InitializationChecklist } from './initialization-checklist';
-import { REPORT_QUESTIONS } from '@/types/report-initialization';
+import { REPORT_QUESTIONS } from '@shared/report-init-config';
 
 interface ChatProps {
   onEditSuggestion: (edit: EditSuggestion | EditSuggestion[]) => void;
@@ -43,6 +43,7 @@ interface ChatProps {
   initializationMode?: boolean;
   reportInitState?: any;
   onUpdateReportField?: (key: string, value: string, category: string) => void;
+  projectId?: string;
 }
 
 interface ChatMessage {
@@ -69,6 +70,7 @@ export function Chat({
   initializationMode = false,
   reportInitState,
   onUpdateReportField,
+  projectId,
 }: ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -112,7 +114,8 @@ export function Chat({
     }
   }, [autoSendMessage]);
 
-  const { startStream, parseStream, stopStream } = useChatStream();
+  const { startInitStream, startStream, parseStream, stopStream } =
+    useChatStream();
   const {
     proposalIndicators,
     clearProposals,
@@ -229,11 +232,11 @@ export function Chat({
       setConversionStatus(message);
     });
 
-    // Clear conversion status - now Claude takes over
+    // Clear conversion status
     setConversionStatus(null);
 
-    // Build the actual content for Claude (with extracted image content)
-    const userContentForClaude = attachmentContext
+    // Build the actual content for the Agent (with extracted image content)
+    const userContentForAgent = attachmentContext
       ? `${trimmed}${attachmentContext}`
       : trimmed;
 
@@ -243,20 +246,21 @@ export function Chat({
     currentAssistantIdRef.current = assistantId;
 
     try {
-      // Create messages array with the actual content for Claude (including image analysis)
-      const messagesForClaude = [
+      // Create messages array with the actual content for the Agent (including image analysis)
+      const messagesForAgent = [
         ...messages, // All previous messages
-        { ...userMsg, content: userContentForClaude }, // User message with enhanced content
+        { ...userMsg, content: userContentForAgent }, // User message with enhanced content
       ];
 
       const { response, controller } = await startStream(
-        messagesForClaude,
+        messagesForAgent,
         fileContent,
         textFromEditor,
         selectionRange,
         {
           currentFilePath,
           projectFiles,
+          projectId,
         },
         {
           onTextUpdate: (text) => {
@@ -498,75 +502,122 @@ export function Chat({
   };
 
   const handleGenerateSuggestions = async () => {
-    if (!reportInitState) return;
+    if (!reportInitState || !projectId) return;
 
     setIsGeneratingSuggestions(true);
+    setError(null);
+    setIsInQuestioningMode(false);
 
-    // build context from collected information
-    let contextMessage =
-      "Based on the information you provided, here's what I'll use to generate report suggestions:\\n\\n";
-
-    // add required fields
-    contextMessage += '**Required Fields:**\\n';
-    Object.entries(reportInitState.required_fields).forEach(([key, value]) => {
-      if (value) {
-        const label = key
-          .replace(/_/g, ' ')
-          .replace(/\\b\\w/g, (l) => l.toUpperCase());
-        contextMessage += `- ${label}: ${value}\\n`;
-      }
-    });
-
-    // add sections
-    const completedSections = Object.entries(reportInitState.sections).filter(
-      ([_, section]: [string, any]) => section.content
-    );
-    if (completedSections.length > 0) {
-      contextMessage += '\\n**Additional Information:**\\n';
-      completedSections.forEach(([key, section]: [string, any]) => {
-        const label = key
-          .replace(/_/g, ' ')
-          .replace(/\\b\\w/g, (l) => l.toUpperCase());
-        contextMessage += `- ${label}: ${section.content}\\n`;
-      });
-    }
-
-    contextMessage +=
-      '\\nGenerating LaTeX code suggestions for your radiation test report...';
-
-    const contextMsg: ChatMessage = {
+    // Show user message
+    const userMsg: ChatMessage = {
       id: `${Date.now()}-user`,
       role: 'user',
       content:
         'Generate report suggestions based on the information I provided.',
     };
-    setMessages((prev) => [...prev, contextMsg]);
+    setMessages((prev) => [...prev, userMsg]);
 
-    // build prompt
-    const generationPrompt = `I need you to generate LaTeX code edits for a radiation test report based on this information:
+    clearProposals();
 
-${Object.entries(reportInitState.required_fields)
-  .filter(([_, value]) => value)
-  .map(([key, value]) => `${key}: ${value}`)
-  .join('\\n')}
+    const assistantId = `${Date.now()}-assistant`;
+    currentAssistantIdRef.current = assistantId;
 
-${completedSections.map(([key, section]: [string, any]) => `${key}: ${section.content}`).join('\n')}
+    setIsLoading(true);
 
-Please generate appropriate edits for the report template files, specifically:
-- Update Inputs/inputs.tex with the provided information
-- Generate content for relevant subsections based on what was provided
-- Ensure all LaTeX formatting is correct`;
+    try {
+      // Call /init endpoint with filtered projectFiles (no images/binaries)
+      const textFiles = projectFiles.filter((file) => {
+        const isImage =
+          /\.(png|jpg|jpeg|gif|bmp|svg|ico|webp|eps|ps|ai)$/i.test(file.path);
+        const isBinary = /\.(pdf|zip|tar|gz|exe|dll|so|dylib)$/i.test(
+          file.path
+        );
+        return !isImage && !isBinary;
+      });
 
-    setIsInQuestioningMode(false);
-    setInput(generationPrompt);
+      const { response } = await startInitStream(
+        reportInitState,
+        textFiles,
+        projectId
+      );
 
-    // trigger the regular chat submission flow
-    setTimeout(() => {
-      if (formRef.current) {
-        formRef.current.requestSubmit();
+      if (!response.ok || !response.body) {
+        let errorMessage = `Request failed with ${response.status}`;
+        try {
+          const data = await response.json();
+          errorMessage = data.error || errorMessage;
+        } catch {
+          // Use default
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          { id: assistantId, role: 'assistant', content: '' },
+        ]);
+        setProposalError(assistantId, errorMessage);
+        throw new Error(errorMessage);
       }
+
+      setMessages((prev) => [
+        ...prev,
+        { id: assistantId, role: 'assistant', content: '' },
+      ]);
+
+      if (response.body) {
+        const reader = response.body.getReader();
+        await parseStream(reader, {
+          onTextUpdate: (text) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, content: text } : m
+              )
+            );
+            if (shouldStickToBottomRef.current) scrollToBottom();
+          },
+          onEdits: (edits) => {
+            const suggestions = convertEditsToSuggestions(edits, assistantId);
+            if (suggestions.length > 0) {
+              onEditSuggestion(suggestions);
+            }
+          },
+          onToolCall: (name, count, violations) => {
+            if (name === 'propose_edits') {
+              const violationCount = Array.isArray(violations)
+                ? violations.length
+                : undefined;
+              setPending(assistantId, count, violationCount);
+            }
+          },
+          onError: (errorMsg) => {
+            setError(new Error(errorMsg));
+            setProposalError(assistantId, errorMsg);
+          },
+          onStatus: (state) => {
+            if (state === 'started') setIsLoading(true);
+          },
+        });
+
+        if (onFinalizeEdits) {
+          onFinalizeEdits();
+        }
+      }
+    } catch (err) {
+      console.error('Report generation error:', err);
+      if ((err as any)?.name !== 'AbortError') {
+        setError(err);
+      } else {
+        if (currentAssistantIdRef.current) {
+          setMessages((prev) =>
+            prev.filter((m) => m.id !== currentAssistantIdRef.current)
+          );
+        }
+      }
+    } finally {
+      setIsLoading(false);
       setIsGeneratingSuggestions(false);
-    }, 100);
+      currentAssistantIdRef.current = null;
+      window.dispatchEvent(new Event('usage-update'));
+    }
   };
 
   if (!isOpen) {

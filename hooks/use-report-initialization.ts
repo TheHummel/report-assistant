@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import type { SectionStatus } from '@shared/report-init-types';
 import {
-  ReportInitializationState,
+  type ReportInitializationState,
   INITIAL_REPORT_STATE,
-  SectionStatus,
-} from '@/types/report-initialization';
+} from '@shared/report-init-config';
 
 const STORAGE_KEY = 'report-initialization-state';
 

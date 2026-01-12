@@ -1,6 +1,6 @@
 /**
  * Octra Agent - Modular LaTeX AI Assistant
- * 
+ *
  * This module provides a clean, modular architecture for the Octra AI agent
  * that handles LaTeX document editing with line-based operations.
  */
@@ -12,6 +12,7 @@ export * from './content-processing';
 export * from './tools';
 export * from './stream-handling';
 export * from './config';
+export * from './report-initialization';
 
 // Re-export commonly used types
 export type { IntentResult } from './intent-inference';

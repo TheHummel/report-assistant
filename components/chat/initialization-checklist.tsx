@@ -16,9 +16,9 @@ import {
   X,
 } from 'lucide-react';
 import {
+  type ReportInitializationState,
   REPORT_QUESTIONS,
-  ReportInitializationState,
-} from '@/types/report-initialization';
+} from '@shared/report-init-config';
 
 interface InitializationChecklistProps {
   state: ReportInitializationState;
@@ -41,22 +41,16 @@ export function InitializationChecklist({
   const [editValue, setEditValue] = useState('');
 
   useEffect(() => {
-    const requiredFieldKeys = [
-      'test_facility',
-      'test_date',
-      'report_author',
-      'devices_under_test',
-      'dut_types',
-      'dut_manufacturer',
-      'dut_package',
-    ] as const;
+    const requiredFieldQuestions = REPORT_QUESTIONS.filter(
+      (q) => q.category != 'other'
+    );
 
-    const completed = requiredFieldKeys.filter(
-      (key) => state.required_fields[key]
+    const completed = requiredFieldQuestions.filter(
+      (q) => state.required_fields[q.key as keyof typeof state.required_fields]
     ).length;
 
     setCompletedCount(completed);
-    setTotalCount(requiredFieldKeys.length);
+    setTotalCount(requiredFieldQuestions.length);
   }, [state]);
 
   const handleEditClick = (key: string, category: string) => {

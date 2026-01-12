@@ -42,6 +42,48 @@ export function useChatStream() {
   const rafIdRef = useRef<number | null>(null);
   const pendingTextRef = useRef<string>('');
 
+  const startInitStream = useCallback(
+    async (
+      reportInitState: any,
+      projectFiles: ProjectFileContextPayload[],
+      projectId: string,
+      userId?: string
+    ) => {
+      // Cancel existing stream
+      if (abortControllerRef.current) {
+        try {
+          abortControllerRef.current.abort();
+        } catch {}
+        abortControllerRef.current = null;
+      }
+
+      // Reset pending RAF
+      if (rafIdRef.current != null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      pendingTextRef.current = '';
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      const res = await fetch('/api/octra-agent/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportInitState,
+          projectFiles,
+          projectId,
+          userId,
+        }),
+        signal: controller.signal,
+      });
+
+      return { response: res, controller };
+    },
+    []
+  );
+
   const startStream = useCallback(
     async (
       messages: ChatMessage[],
