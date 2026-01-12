@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { TablesInsert } from '@/database.types';
 import { z } from 'zod';
-import { getRadiationTemplateFiles } from '@/data/radiation-template';
+import { getReportTemplateFiles } from '@/data/report-template';
 
 const CreateProject = z.object({
   title: z.string().min(1, 'Project title is required').trim(),
@@ -57,7 +57,7 @@ export async function createProject(title: string) {
 
     // get template files for the radiation test report
     const templateDir = 'public/radiation-test-report-template-master';
-    const templateFiles = await getRadiationTemplateFiles(templateDir);
+    const templateFiles = await getReportTemplateFiles(templateDir);
 
     // upload files to storage
     for (const templateFile of templateFiles) {

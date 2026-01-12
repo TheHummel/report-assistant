@@ -1,4 +1,4 @@
-// Radiation Test Report Template
+// Report Template Loader
 
 import fs from 'fs';
 import path from 'path';
@@ -31,7 +31,7 @@ function getContentType(filePath: string): string {
 }
 
 // read template files from public directory
-export async function getRadiationTemplateFiles(
+export async function getReportTemplateFiles(
   baseDir: string,
   relativePath: string = ''
 ): Promise<TemplateFile[]> {
@@ -48,7 +48,7 @@ export async function getRadiationTemplateFiles(
     if (entry.isDirectory()) {
       if (entry.name.startsWith('.')) continue;
 
-      const subFiles = await getRadiationTemplateFiles(
+      const subFiles = await getReportTemplateFiles(
         baseDir,
         entryRelativePath
       );
@@ -78,4 +78,4 @@ export async function getRadiationTemplateFiles(
 }
 
 // main file (entry point)
-export const RADIATION_TEMPLATE_MAIN_FILE = 'Report.tex';
+export const REPORT_TEMPLATE_MAIN_FILE = 'Report.tex';
