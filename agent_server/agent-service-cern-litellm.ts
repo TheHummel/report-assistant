@@ -87,10 +87,11 @@ function validateApiConfig(): { isValid: boolean; error?: string } {
 }
 
 /**
- * Call CERN LiteLLM API
+ * Call CERN LiteLLM API with streaming support and emit chunks to client
  */
-async function callCERNLiteLLM(
-  request: CERNLiteLLMRequest
+async function callCERNLiteLLMStreaming(
+  request: CERNLiteLLMRequest,
+  onChunk?: (content: string) => void
 ): Promise<CERNLiteLLMResponse> {
   const response = await fetch(CERN_LITELLM_URL, {
     method: 'POST',
@@ -98,7 +99,10 @@ async function callCERNLiteLLM(
       'Content-Type': 'application/json',
       'X-API-Key': CERN_LITELLM_API_KEY,
     },
-    body: JSON.stringify(request),
+    body: JSON.stringify({
+      ...request,
+      stream: true,
+    }),
   });
 
   if (!response.ok) {
@@ -108,8 +112,105 @@ async function callCERNLiteLLM(
     );
   }
 
-  const data = await response.json();
-  return data as CERNLiteLLMResponse;
+  if (!response.body) {
+    throw new Error('No response body from CERN LiteLLM');
+  }
+
+  // Parse streaming response
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalResponse: CERNLiteLLMResponse | null = null;
+  let accumulatedContent = '';
+  let accumulatedToolCalls: CERNLiteLLMToolCall[] = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.trim() || line.startsWith(':')) continue;
+      if (!line.startsWith('data: ')) continue;
+
+      const data = line.slice(6);
+      if (data === '[DONE]') continue;
+
+      try {
+        const chunk = JSON.parse(data) as any;
+
+        // Handle direct OpenAI format
+        if (chunk.choices?.[0]?.delta) {
+          const delta = chunk.choices[0].delta;
+
+          if (delta.content) {
+            accumulatedContent += delta.content;
+            // Emit chunk to client immediately
+            if (onChunk) {
+              onChunk(delta.content);
+            }
+          }
+
+          if (delta.tool_calls) {
+            for (const toolCallDelta of delta.tool_calls) {
+              const index = toolCallDelta.index;
+              if (!accumulatedToolCalls[index]) {
+                accumulatedToolCalls[index] = {
+                  id: toolCallDelta.id || '',
+                  type: 'function',
+                  function: {
+                    name: toolCallDelta.function?.name || '',
+                    arguments: toolCallDelta.function?.arguments || '',
+                  },
+                };
+              } else {
+                if (toolCallDelta.function?.name) {
+                  accumulatedToolCalls[index].function.name +=
+                    toolCallDelta.function.name;
+                }
+                if (toolCallDelta.function?.arguments) {
+                  accumulatedToolCalls[index].function.arguments +=
+                    toolCallDelta.function.arguments;
+                }
+              }
+            }
+          }
+
+          // Build final response structure
+          finalResponse = {
+            choices: [
+              {
+                message: {
+                  role: 'assistant',
+                  content: accumulatedContent,
+                  tool_calls:
+                    accumulatedToolCalls.length > 0
+                      ? accumulatedToolCalls
+                      : undefined,
+                },
+                finish_reason: chunk.choices[0].finish_reason || null,
+              },
+            ],
+          } as any;
+        }
+        // Handle wrapped format (steps)
+        else if (chunk.steps) {
+          finalResponse = chunk as CERNLiteLLMResponse;
+        }
+      } catch (e) {
+        console.warn('[CERN LiteLLM] Failed to parse streaming chunk:', e);
+      }
+    }
+  }
+
+  if (!finalResponse) {
+    throw new Error('No valid response received from CERN LiteLLM stream');
+  }
+
+  return finalResponse;
 }
 
 /**
@@ -347,10 +448,14 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
         tool_choice: 'auto',
       };
 
-      // Call CERN LiteLLM
+      // Call CERN LiteLLM with streaming
       let response: CERNLiteLLMResponse;
       try {
-        response = await callCERNLiteLLM(request);
+        response = await callCERNLiteLLMStreaming(request, (chunk) => {
+          // Stream text chunks to client immediately
+          finalText += chunk;
+          writeEvent('assistant_partial', { text: chunk });
+        });
       } catch (error) {
         const errMsg =
           error instanceof Error ? error.message : 'Unknown CERN LiteLLM error';
@@ -371,7 +476,7 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
       console.log('[CERN LiteLLM Agent] Extracted tool calls:', toolCalls);
       console.log('[CERN LiteLLM Agent] isComplete:', isComplete(response));
 
-      // Track text content (don't emit yet)
+      // Update finalText if there's new content
       if (textContent && textContent !== finalText) {
         finalText = textContent;
       }
