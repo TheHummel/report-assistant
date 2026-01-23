@@ -25,6 +25,10 @@ import { generateInitializationEdits } from './lib/octra-agent/report-initializa
 import { loadInitState, saveInitState } from './lib/init-state-store';
 import { INIT_TARGET_FILES } from '@shared/report-init-config';
 import {
+  buildImageDescriptionPrompt,
+  buildImageDescriptionUserPrompt,
+} from './lib/octra-agent/content-processing';
+import {
   getToolDefinitions,
   executeToolCall,
   CERNLiteLLMRequest,
@@ -48,6 +52,7 @@ app.use(express.json({ limit: '10mb' }));
 const CERN_LITELLM_URL = process.env.CERN_LITELLM_URL!;
 const CERN_LITELLM_API_KEY = process.env.CERN_LITELLM_API_KEY!;
 const CERN_LITELLM_MODEL = process.env.CERN_LITELLM_MODEL!;
+const CERN_LITELLM_VISION_MODEL = process.env.CERN_LITELLM_VISION_MODEL!;
 const MAX_AGENT_ITERATIONS = 10; // Safety limit for agentic loop
 const TOOL_CALL_DELAY_MS = parseInt(process.env.TOOL_CALL_DELAY_MS || '0', 10);
 
@@ -72,7 +77,9 @@ function validateApiConfig(): { isValid: boolean; error?: string } {
 /**
  * Call CERN LiteLLM API
  */
-async function callCERNLiteLLM(request: CERNLiteLLMRequest): Promise<CERNLiteLLMResponse> {
+async function callCERNLiteLLM(
+  request: CERNLiteLLMRequest
+): Promise<CERNLiteLLMResponse> {
   const response = await fetch(CERN_LITELLM_URL, {
     method: 'POST',
     headers: {
@@ -126,7 +133,9 @@ function extractTextContent(response: CERNLiteLLMResponse): string {
  * Extract tool calls from LiteLLM response
  * Handles both wrapped (steps) and unwrapped (direct OpenAI) formats
  */
-function extractToolCalls(response: CERNLiteLLMResponse): CERNLiteLLMToolCall[] {
+function extractToolCalls(
+  response: CERNLiteLLMResponse
+): CERNLiteLLMToolCall[] {
   // Check for direct OpenAI format first (choices at root level)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anyResponse = response as any;
@@ -163,6 +172,131 @@ function isComplete(response: CERNLiteLLMResponse): boolean {
     step.finishReason || step.response?.body?.choices?.[0]?.finish_reason;
   return finishReason === 'stop' || finishReason === 'length';
 }
+
+// ============================================================================
+// Image-to-LaTeX Endpoint
+// ============================================================================
+
+app.post(
+  '/agent/image-to-latex',
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const { image, fileName } = req.body;
+
+      if (!image) {
+        return res.status(400).send('Image is required');
+      }
+
+      // Ensure image is in data URL format
+      const imageDataUrl = image.startsWith('data:')
+        ? image
+        : `data:image/jpeg;base64,${image}`;
+
+      // Validate config
+      if (
+        !CERN_LITELLM_URL ||
+        !CERN_LITELLM_API_KEY ||
+        !CERN_LITELLM_VISION_MODEL
+      ) {
+        console.error('[Image-to-LaTeX] Missing required configuration:', {
+          hasApiUrl: !!CERN_LITELLM_URL,
+          hasApiKey: !!CERN_LITELLM_API_KEY,
+          hasVisionModel: !!CERN_LITELLM_VISION_MODEL,
+        });
+        return res
+          .status(503)
+          .send(
+            'CERN LiteLLM configuration missing. Please check CERN_LITELLM_URL, CERN_LITELLM_API_KEY and CERN_LITELLM_VISION_MODEL environment variables.'
+          );
+      }
+
+      // Build prompts using centralized functions
+      const systemPrompt = buildImageDescriptionPrompt();
+      const userPromptText = buildImageDescriptionUserPrompt(fileName);
+
+      // Call CERN LiteLLM Vision API
+      const response = await fetch(CERN_LITELLM_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': CERN_LITELLM_API_KEY,
+        },
+        body: JSON.stringify({
+          model: CERN_LITELLM_VISION_MODEL,
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt,
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: userPromptText,
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: imageDataUrl,
+                  },
+                },
+              ],
+            },
+          ],
+          max_tokens: 512,
+          temperature: 0.1,
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Image-to-LaTeX] CERN LiteLLM API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+        });
+
+        return res
+          .status(500)
+          .send(`Failed to process image: ${response.status} ${errorText}`);
+      }
+
+      // Parse response
+      const data = (await response.json()) as any;
+      let content = '';
+
+      if (data.choices?.[0]?.message?.content) {
+        content = data.choices[0].message.content;
+      }
+      // Check for wrapped format
+      else if (data.steps?.[0]?.content) {
+        const step = data.steps[0];
+        const textContent = step.content.find((c: any) => c.type === 'text');
+        content = textContent?.text || '';
+      } else if (
+        data.steps?.[0]?.response?.body?.choices?.[0]?.message?.content
+      ) {
+        content = data.steps[0].response.body.choices[0].message.content;
+      }
+
+      if (!content) {
+        console.error('[Image-to-LaTeX] No content in response:', data);
+        return res.status(500).send('No content extracted from image');
+      }
+
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.send(content);
+    } catch (error) {
+      console.error('[Image-to-LaTeX] Error:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).send(`Internal server error: ${errorMessage}`);
+    }
+  }
+);
 
 // ============================================================================
 // Report Initialization Endpoint

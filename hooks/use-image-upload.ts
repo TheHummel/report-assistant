@@ -3,6 +3,7 @@ import { EditSuggestion } from '@/types/edit';
 import { v4 as uuid } from 'uuid';
 import { convertImageToLatex } from '@/lib/image-to-latex';
 import { uploadImageToProject, dataUrlToFile } from '@/lib/requests/project';
+import { buildImageIntegrationPrompt } from '@/agent_server/lib/octra-agent/content-processing';
 
 interface UseImageUploadProps {
   content: string;
@@ -72,42 +73,16 @@ export function useImageUpload({
 
         const subsectionContent = subsectionFile.content || '';
 
-        // Step 4: build prompt for the agent
-        const verbosityInstructions = {
-          low: 'Keep the caption brief and concise - just the essential facts.',
-          medium:
-            'Provide a standard caption with key observations and context.',
-          high: 'Create a detailed, comprehensive caption explaining all visible elements, trends, and implications.',
-        };
-
-        let prompt = `I have uploaded an image and analyzed its content.
-
---- Image Content ---
-${imageDescription}
---- End Image Content ---
-
-Image file location: ${imagePath}
-
-Please integrate this content into the following LaTeX file:
-
-Target File: ${data.subsection}
-Subsection Name: ${data.subsectionName}
-
-Current Content in this File:
-\`\`\`latex
-${subsectionContent || '(Empty file)'}
-\`\`\`
-
-Please suggest LaTeX code edits to:
-1. Add an \\includegraphics command to reference the image file at: ${imagePath}
-2. Include the analyzed content as a figure caption or surrounding text
-3. Format it appropriately with proper LaTeX commands (\\begin{figure}, \\centering, \\caption, etc.)
-
-Caption Verbosity: ${verbosityInstructions[data.verbosity]}`;
-
-        if (data.comment) {
-          prompt += `\n\nAdditional Instructions: ${data.comment}`;
-        }
+        // Step 4: build prompt for the agent to integrate image and image description
+        const prompt = buildImageIntegrationPrompt(
+          imageDescription,
+          imagePath,
+          data.subsection,
+          data.subsectionName,
+          subsectionContent,
+          data.verbosity,
+          data.comment
+        );
 
         // Step 5: send request to agent service
         const response = await fetch('/api/octra-agent', {

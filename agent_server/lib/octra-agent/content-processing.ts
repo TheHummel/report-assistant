@@ -184,3 +184,127 @@ Selection: lines ${selectionRange.startLineNumber}-${selectionRange.endLineNumbe
       : ''
   }${projectSection}`;
 }
+
+/**
+ * Build initialization prompt for report generation
+ * @param reportInitState - The report initialization state with required fields and sections
+ * @returns Formatted prompt for report generation
+ */
+export function buildInitializationPrompt(reportInitState: {
+  required_fields: Record<string, string>;
+  sections: Record<string, { content?: string; status?: string }>;
+}): string {
+  const completedSections = Object.entries(reportInitState.sections).filter(
+    ([_, section]) => section.content
+  );
+
+  const prompt = `I need you to generate LaTeX code edits for a radiation test report based on the following information:
+
+**Required Fields:**
+${Object.entries(reportInitState.required_fields)
+  .filter(([_, value]) => value)
+  .map(([key, value]) => {
+    const label = key
+      .replace(/_/g, ' ')
+      .replace(/\\b\\w/g, (l) => l.toUpperCase());
+    return `- ${label}: ${value}`;
+  })
+  .join('\n')}
+
+${
+  completedSections.length > 0
+    ? `**Additional Information:**
+${completedSections
+  .map(([key, section]) => {
+    const label = key
+      .replace(/_/g, ' ')
+      .replace(/\\b\\w/g, (l) => l.toUpperCase());
+    return `- ${label}: ${section.content}`;
+  })
+  .join('\n')}`
+    : ''
+}
+
+Please generate appropriate edits for the report template files:
+1. Update Inputs/inputs.tex with author information, DUT details, and facility settings
+2. Generate content for relevant subsections based on the provided information
+3. Ensure all LaTeX formatting is correct and follows the template structure`;
+
+  return prompt;
+}
+
+/**
+ * Build system prompt for image description/analysis
+ * Used when extracting content from images for LaTeX documents
+ * @returns System prompt for image analysis
+ */
+export function buildImageDescriptionPrompt(): string {
+  return `You are an expert at analyzing images and extracting their content. Describe everything you see clearly and accurately.`;
+}
+
+/**
+ * Build user prompt for image description
+ * @param fileName: Name of the image file
+ * @returns User prompt for image analysis
+ */
+export function buildImageDescriptionUserPrompt(fileName?: string): string {
+  return `Describe everything you see in this image. If the image contains a plot, describe the plot clearly, including axes, labels, and any data points as well as the main features and insights. Be concise but accurate.\n\nImage: ${fileName || 'image'}`;
+}
+
+/**
+ * Build prompt for integrating an uploaded image into a LaTeX file
+ * @param imageDescription - The analyzed content/description of the image
+ * @param imagePath - Path to the uploaded image file
+ * @param subsectionPath - Path to the target LaTeX file
+ * @param subsectionName - Display name of the subsection
+ * @param subsectionContent - Current content of the target file
+ * @param verbosity - Caption detail level: 'low', 'medium', or 'high'
+ * @param comment - Optional additional instructions from user
+ * @returns Formatted prompt for the agent
+ */
+export function buildImageIntegrationPrompt(
+  imageDescription: string,
+  imagePath: string,
+  subsectionPath: string,
+  subsectionName: string,
+  subsectionContent: string,
+  verbosity: 'low' | 'medium' | 'high',
+  comment?: string
+): string {
+  const verbosityInstructions = {
+    low: 'Keep the caption brief and concise - just the essential facts.',
+    medium: 'Provide a standard caption with key observations and context.',
+    high: 'Create a detailed, comprehensive caption explaining all visible elements, trends, and implications.',
+  };
+
+  let prompt = `I have uploaded an image and analyzed its content.
+
+--- Image Content ---
+${imageDescription}
+--- End Image Content ---
+
+Image file location: ${imagePath}
+
+Please integrate this content into the following LaTeX file:
+
+Target File: ${subsectionPath}
+Subsection Name: ${subsectionName}
+
+Current Content in this File:
+\`\`\`latex
+${subsectionContent || '(Empty file)'}
+\`\`\`
+
+Please suggest LaTeX code edits to:
+1. Add an \\includegraphics command to reference the image file at: ${imagePath}
+2. Include the analyzed content as a figure caption or surrounding text
+3. Format it appropriately with proper LaTeX commands (\\begin{figure}, \\centering, \\caption, etc.)
+
+Caption Verbosity: ${verbosityInstructions[verbosity]}`;
+
+  if (comment) {
+    prompt += `\n\nAdditional Instructions: ${comment}`;
+  }
+
+  return prompt;
+}
