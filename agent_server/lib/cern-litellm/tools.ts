@@ -245,7 +245,18 @@ function executeProposeEdits(
   context: ToolExecutionContext
 ): ToolResult {
   const { agentContext, intent, collectedEdits, writeEvent } = context;
-  const edits = args.edits as Array<{
+  
+  // Handle double-nested edits: {"edits": {"edits": [...]}}
+  let editsParam = args.edits;
+  if (editsParam && typeof editsParam === 'object' && !Array.isArray(editsParam)) {
+    const nestedEdits = (editsParam as Record<string, unknown>).edits;
+    if (Array.isArray(nestedEdits)) {
+      console.warn('[propose_edits] Detected double-nested edits, unwrapping...');
+      editsParam = nestedEdits;
+    }
+  }
+  
+  const edits = editsParam as Array<{
     editType: 'insert' | 'delete' | 'replace';
     content?: string;
     position: { line: number };
