@@ -13,35 +13,36 @@ export async function POST(request: NextRequest) {
       ? image
       : `data:image/jpeg;base64,${image}`;
 
-    // call ACCGPT API with vision support
-    const ACCGPT_BASE_URL = process.env.ACC_GPT_BASE_URL;
-    const ACCGPT_API_KEY = process.env.CSS_API_KEY;
-    const ACCGPT_VISION_MODEL = process.env.ACCGPT_VISION_MODEL!;
+    // call CERN LiteLLM API with vision support
+    const CERN_LITELLM_API_BASE_URL = process.env.CERN_LITELLM_API_BASE_URL;
+    const CERN_LITELLM_API_KEY = process.env.CERN_LITELLM_API_KEY;
+    const CERN_LITELLM_VISION_MODEL = process.env.CERN_LITELLM_VISION_MODEL!;
 
-    if (!ACCGPT_BASE_URL || !ACCGPT_API_KEY) {
+    if (!CERN_LITELLM_API_BASE_URL || !CERN_LITELLM_API_KEY || !CERN_LITELLM_VISION_MODEL) {
       console.error(
         '[Image-to-LaTeX] Missing required environment variables:',
         {
-          hasBaseUrl: !!ACCGPT_BASE_URL,
-          hasApiKey: !!ACCGPT_API_KEY,
+          hasBaseUrl: !!CERN_LITELLM_API_BASE_URL,
+          hasApiKey: !!CERN_LITELLM_API_KEY,
+          hasVisionModel: !!CERN_LITELLM_VISION_MODEL,
         }
       );
       return new Response(
-        'ACCGPT configuration missing. Please check ACC_GPT_BASE_URL and CSS_API_KEY environment variables.',
+        'CERN LiteLLM configuration missing. Please check CERN_LITELLM_API_BASE_URL, CERN_LITELLM_API_KEY and CERN_LITELLM_VISION_MODEL environment variables.',
         { status: 503 }
       );
     }
 
     const systemPrompt = `You are an expert at analyzing images and extracting their content. Describe everything you see clearly and accurately.`;
 
-    const response = await fetch(`${ACCGPT_BASE_URL}/chat`, {
+    const response = await fetch(`${CERN_LITELLM_API_BASE_URL}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': ACCGPT_API_KEY,
+        'X-API-Key': CERN_LITELLM_API_KEY,
       },
       body: JSON.stringify({
-        model: ACCGPT_VISION_MODEL,
+        model: CERN_LITELLM_VISION_MODEL,
         messages: [
           {
             role: 'system',
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[Image-to-LaTeX] ACCGPT API error:', {
+      console.error('[Image-to-LaTeX] CERN LiteLLM API error:', {
         status: response.status,
         statusText: response.statusText,
         error: errorText,

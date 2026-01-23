@@ -1,8 +1,7 @@
 /**
- * ACCGPT Agent Service for Octree LaTeX Editor
+ * CERN Agent Service for Octree LaTeX Editor
  *
- * Replaces the Claude Agent SDK with a custom agentic loop using ACCGPT
- * (OpenAI-compatible API with GPT-OSS model)
+ * Uses CERN LiteLLM API
  *
  * Features:
  * - Agentic loop with tool calls
@@ -20,6 +19,7 @@ import {
   buildNumberedContent,
   buildSystemPrompt,
   inferIntent,
+  buildInitializationPrompt,
 } from './lib/octra-agent';
 import { generateInitializationEdits } from './lib/octra-agent/report-initialization';
 import { loadInitState, saveInitState } from './lib/init-state-store';
@@ -27,13 +27,13 @@ import { INIT_TARGET_FILES } from '@shared/report-init-config';
 import {
   getToolDefinitions,
   executeToolCall,
-  ACCGPTRequest,
-  ACCGPTResponse,
-  ACCGPTMessage,
-  ACCGPTToolCall,
+  CERNLiteLLMRequest,
+  CERNLiteLLMResponse,
+  CERNLiteLLMMessage,
+  CERNLiteLLMToolCall,
   AgentContext,
   ProjectFileContext,
-} from './lib/accgpt';
+} from './lib/cern-litellm';
 import type { LineEdit } from './lib/octra-agent/line-edits';
 import type { IntentResult } from './lib/octra-agent/intent-inference';
 
@@ -45,10 +45,9 @@ app.use(express.json({ limit: '10mb' }));
 // Configuration
 // ============================================================================
 
-const ACCGPT_BASE_URL =
-  process.env.ACC_GPT_BASE_URL || 'https://your-accgpt-endpoint.example.com';
-const ACCGPT_API_KEY = process.env.CSS_API_KEY || '';
-const ACCGPT_MODEL = process.env.ACCGPT_MODEL || 'openai/gpt-oss-120b';
+const CERN_LITELLM_URL = process.env.CERN_LITELLM_URL!;
+const CERN_LITELLM_API_KEY = process.env.CERN_LITELLM_API_KEY!;
+const CERN_LITELLM_MODEL = process.env.CERN_LITELLM_MODEL!;
 const MAX_AGENT_ITERATIONS = 10; // Safety limit for agentic loop
 const TOOL_CALL_DELAY_MS = parseInt(process.env.TOOL_CALL_DELAY_MS || '0', 10);
 
@@ -61,39 +60,44 @@ function sleep(ms: number): Promise<void> {
 }
 
 function validateApiConfig(): { isValid: boolean; error?: string } {
-  if (!ACCGPT_API_KEY) {
-    return { isValid: false, error: 'CSS_API_KEY is not configured' };
+  if (!CERN_LITELLM_URL) {
+    return { isValid: false, error: 'CERN_LITELLM_URL is not configured' };
+  }
+  if (!CERN_LITELLM_API_KEY) {
+    return { isValid: false, error: 'CERN_LITELLM_API_KEY is not configured' };
   }
   return { isValid: true };
 }
 
 /**
- * Call ACCGPT API
+ * Call CERN LiteLLM API
  */
-async function callACCGPT(request: ACCGPTRequest): Promise<ACCGPTResponse> {
-  const response = await fetch(`${ACCGPT_BASE_URL}/chat`, {
+async function callCERNLiteLLM(request: CERNLiteLLMRequest): Promise<CERNLiteLLMResponse> {
+  const response = await fetch(CERN_LITELLM_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-API-Key': ACCGPT_API_KEY,
+      'X-API-Key': CERN_LITELLM_API_KEY,
     },
     body: JSON.stringify(request),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`ACCGPT API error (${response.status}): ${errorText}`);
+    throw new Error(
+      `CERN LiteLLM API error (${response.status}): ${errorText}`
+    );
   }
 
   const data = await response.json();
-  return data as ACCGPTResponse;
+  return data as CERNLiteLLMResponse;
 }
 
 /**
- * Extract text content from ACCGPT response
+ * Extract text content from CERN LiteLLM response
  * Handles both wrapped (steps) and unwrapped (direct OpenAI) formats
  */
-function extractTextContent(response: ACCGPTResponse): string {
+function extractTextContent(response: CERNLiteLLMResponse): string {
   // Check for direct OpenAI format first (choices at root level)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anyResponse = response as any;
@@ -119,10 +123,10 @@ function extractTextContent(response: ACCGPTResponse): string {
 }
 
 /**
- * Extract tool calls from ACCGPT response
+ * Extract tool calls from LiteLLM response
  * Handles both wrapped (steps) and unwrapped (direct OpenAI) formats
  */
-function extractToolCalls(response: ACCGPTResponse): ACCGPTToolCall[] {
+function extractToolCalls(response: CERNLiteLLMResponse): CERNLiteLLMToolCall[] {
   // Check for direct OpenAI format first (choices at root level)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anyResponse = response as any;
@@ -142,7 +146,7 @@ function extractToolCalls(response: ACCGPTResponse): ACCGPTToolCall[] {
  * Check if the response indicates completion (no more tool calls needed)
  * Handles both wrapped (steps) and unwrapped (direct OpenAI) formats
  */
-function isComplete(response: ACCGPTResponse): boolean {
+function isComplete(response: CERNLiteLLMResponse): boolean {
   // Check for direct OpenAI format first
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const anyResponse = response as any;
@@ -236,7 +240,7 @@ app.post('/agent/init', async (req: express.Request, res: express.Response) => {
       allEdits.push(...edits);
     }
 
-    // TODO: refine edits with ACCGPT + GenAI edits for sections information provided from user
+    // TODO: refine edits with CERN LiteLLM + GenAI edits for sections information provided from user
 
     console.log(`[Init] Generated ${allEdits.length} total edits`);
 
@@ -275,6 +279,37 @@ app.post('/agent/init', async (req: express.Request, res: express.Response) => {
   }
 });
 
+// GET /agent/init/:key - Retrieve stored initialization state
+app.get(
+  '/agent/init/:key',
+  async (req: express.Request, res: express.Response) => {
+    try {
+      const { key } = req.params;
+
+      if (!key) {
+        return res.status(400).json({ error: 'State key is required' });
+      }
+
+      const state = await loadInitState(key);
+
+      if (!state) {
+        return res.status(404).json({
+          error: 'No initialization state found for this key',
+        });
+      }
+
+      return res.json({ state });
+    } catch (error) {
+      console.error('[Init] Error loading state:', error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      return res.status(500).json({
+        error: 'Failed to load initialization state',
+        details: message,
+      });
+    }
+  }
+);
+
 // ============================================================================
 // Main Agent Endpoint
 // ============================================================================
@@ -295,7 +330,23 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
       selectionRange,
       projectFiles: projectFilesPayload,
       currentFilePath,
+      projectId,
+      userId,
     } = req.body || {};
+
+    console.log('[DEBUG] Full request body keys:', Object.keys(req.body || {}));
+    console.log('[DEBUG] projectId:', projectId);
+    console.log('[DEBUG] userId:', userId);
+
+    // Load initialization state if projectId or userId provided
+    const stateKey = projectId || userId;
+    let reportInitState = null;
+    if (stateKey) {
+      reportInitState = await loadInitState(stateKey);
+      if (reportInitState) {
+        console.log('[Agent] Loaded initialization state for:', stateKey);
+      }
+    }
 
     // filter out file with .cls
     const filteredProjectFilesPayload = Array.isArray(projectFilesPayload)
@@ -311,15 +362,29 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
         .json({ error: 'Invalid request: messages and fileContent required' });
     }
 
+    // Set up SSE response first
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    const writeEvent = (event: string, data: unknown) => {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
     // Build context (non-blocking)
     const numberedContent = await buildNumberedContent(
       fileContent,
       textFromEditor
     );
+
+    // Regular chat flow - build user message
     const userText =
       typeof messages[messages.length - 1]?.content === 'string'
         ? messages[messages.length - 1].content
         : '';
+
     const intent: IntentResult = await inferIntent(userText);
     const collectedEdits: LineEdit[] = [];
 
@@ -327,6 +392,7 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
     const previousMessages = messages
       .slice(0, -1)
       .filter((msg: { role: string }) => msg.role !== 'system')
+      // .slice(-10) // keep last 10 messages for context without bloating
       .map((msg: { role: string; content: string }) => ({
         role: msg.role,
         content: msg.content,
@@ -359,17 +425,6 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
       currentFilePath: normalizedCurrentFilePath,
     };
 
-    // Set up SSE response
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-
-    const writeEvent = (event: string, data: unknown) => {
-      res.write(`event: ${event}\n`);
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
-
     // Tool execution context
     const toolContext = {
       agentContext,
@@ -388,7 +443,7 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
     );
 
     // Initialize conversation with system prompt, previous messages, and current user message
-    const conversationMessages: ACCGPTMessage[] = [
+    const conversationMessages: CERNLiteLLMMessage[] = [
       { role: 'system', content: systemPrompt },
       ...previousMessages,
       { role: 'user', content: userText },
@@ -404,12 +459,12 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
     // ========================================================================
     while (iteration < MAX_AGENT_ITERATIONS) {
       iteration++;
-      console.log(`[ACCGPT Agent] Iteration ${iteration}`);
+      console.log(`[CERN LiteLLM Agent] Iteration ${iteration}`);
 
       // Build request
-      const request: ACCGPTRequest = {
+      const request: CERNLiteLLMRequest = {
         messages: conversationMessages,
-        model: ACCGPT_MODEL,
+        model: CERN_LITELLM_MODEL,
         max_tokens: 8192,
         temperature: 0.1,
         n: 1,
@@ -417,45 +472,45 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
         tool_choice: 'auto',
       };
 
-      // Call ACCGPT
-      let response: ACCGPTResponse;
+      // Call CERN LiteLLM
+      let response: CERNLiteLLMResponse;
       try {
-        response = await callACCGPT(request);
+        response = await callCERNLiteLLM(request);
       } catch (error) {
         const errMsg =
-          error instanceof Error ? error.message : 'Unknown ACCGPT error';
-        console.error('[ACCGPT Agent] API error:', errMsg);
+          error instanceof Error ? error.message : 'Unknown CERN LiteLLM error';
+        console.error('[CERN LiteLLM Agent] API error:', errMsg);
         writeEvent('error', { message: errMsg });
         break;
       }
 
       console.log(
-        '[ACCGPT Agent] Received response:',
+        '[CERN LiteLLM Agent] Received response:',
         JSON.stringify(response, null, 2)
       );
 
       // Extract content and tool calls
       const textContent = extractTextContent(response);
-      console.log('[ACCGPT Agent] Extracted text content:', textContent);
+      console.log('[CERN LiteLLM Agent] Extracted text content:', textContent);
       const toolCalls = extractToolCalls(response);
-      console.log('[ACCGPT Agent] Extracted tool calls:', toolCalls);
-      console.log('[ACCGPT Agent] isComplete:', isComplete(response));
+      console.log('[CERN LiteLLM Agent] Extracted tool calls:', toolCalls);
+      console.log('[CERN LiteLLM Agent] isComplete:', isComplete(response));
 
-      // Track text content (don't emit yet - ACCGPT returns full text, not chunks)
+      // Track text content (don't emit yet)
       if (textContent && textContent !== finalText) {
         finalText = textContent;
       }
 
       // Check if we're done (no tool calls, stop reason)
       if (isComplete(response) && toolCalls.length === 0) {
-        console.log('[ACCGPT Agent] Complete - no more tool calls');
+        console.log('[CERN LiteLLM Agent] Complete - no more tool calls');
         break;
       }
 
       // Process tool calls
       if (toolCalls.length > 0) {
         console.log(
-          `[ACCGPT Agent] Processing ${toolCalls.length} tool call(s)`
+          `[CERN LiteLLM Agent] Processing ${toolCalls.length} tool call(s)`
         );
 
         // Add assistant message with tool calls to conversation
@@ -474,11 +529,11 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
             toolArgs = JSON.parse(toolCall.function.arguments || '{}');
           } catch (parseError) {
             console.warn(
-              `[ACCGPT Agent] Failed to parse tool arguments for ${toolName}`
+              `[CERN LiteLLM Agent] Failed to parse tool arguments for ${toolName}`
             );
           }
 
-          console.log(`[ACCGPT Agent] Executing tool: ${toolName}`);
+          console.log(`[CERN LiteLLM Agent] Executing tool: ${toolName}`);
 
           const result = executeToolCall(
             toolName,
@@ -502,14 +557,14 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
       } else if (!isComplete(response)) {
         // No tool calls but not complete - unusual, break to avoid infinite loop
         console.warn(
-          '[ACCGPT Agent] No tool calls but not complete, breaking loop'
+          '[CERN LiteLLM Agent] No tool calls but not complete, breaking loop'
         );
         break;
       }
     }
 
     if (iteration >= MAX_AGENT_ITERATIONS) {
-      console.warn('[ACCGPT Agent] Reached max iterations');
+      console.warn('[CERN LiteLLM Agent] Reached max iterations');
       writeEvent('error', { message: 'Agent reached maximum iteration limit' });
     }
 
@@ -517,7 +572,7 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
     writeEvent('done', { text: finalText });
     res.end();
   } catch (error) {
-    console.error('[ACCGPT Agent] Error:', error);
+    console.error('[CERN LiteLLM Agent] Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
 
     // Try to send error event if headers not sent
@@ -537,9 +592,9 @@ app.post('/agent', async (req: express.Request, res: express.Response) => {
 app.get('/health', (_req: express.Request, res: express.Response) => {
   res.json({
     status: 'ok',
-    service: 'accgpt-agent',
-    model: ACCGPT_MODEL,
-    configured: !!ACCGPT_API_KEY,
+    service: 'cern-litellm-agent',
+    model: CERN_LITELLM_MODEL,
+    configured: !!CERN_LITELLM_API_KEY,
   });
 });
 
@@ -547,10 +602,12 @@ app.get('/health', (_req: express.Request, res: express.Response) => {
 // Start Server
 // ============================================================================
 
-const PORT = process.env.PORT || 8788;
+const PORT = process.env.PORT || 8787;
 app.listen(PORT, () => {
-  console.log(`[ACCGPT Agent] Service listening on :${PORT}`);
-  console.log(`[ACCGPT Agent] Model: ${ACCGPT_MODEL}`);
-  console.log(`[ACCGPT Agent] Base URL: ${ACCGPT_BASE_URL}`);
-  console.log(`[ACCGPT Agent] API Key configured: ${!!ACCGPT_API_KEY}`);
+  console.log(`[CERN LiteLLM Agent] Service listening on :${PORT}`);
+  console.log(`[CERN LiteLLM Agent] Model: ${CERN_LITELLM_MODEL}`);
+  console.log(`[CERN LiteLLM Agent] Base URL: ${CERN_LITELLM_URL}`);
+  console.log(
+    `[CERN LiteLLM Agent] API Key configured: ${!!CERN_LITELLM_API_KEY}`
+  );
 });

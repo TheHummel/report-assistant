@@ -1,10 +1,10 @@
 /**
- * OpenAI-format tool definitions for ACCGPT agent
+ * OpenAI-format tool definitions for CERN LiteLLM agent
  * Tools for LaTeX document editing (get_context, propose_edits)
  */
 
 import type {
-  ACCGPTToolDefinition,
+  CERNLiteLLMToolDefinition,
   AgentContext,
   ToolResult,
   ProjectFileContext,
@@ -16,7 +16,7 @@ import { IntentResult } from '../octra-agent/intent-inference';
 // Tool Definitions
 // ============================================================================
 
-export const GET_CONTEXT_TOOL: ACCGPTToolDefinition = {
+export const GET_CONTEXT_TOOL: CERNLiteLLMToolDefinition = {
   type: 'function',
   function: {
     name: 'get_context',
@@ -46,7 +46,7 @@ export const GET_CONTEXT_TOOL: ACCGPTToolDefinition = {
   },
 };
 
-export const PROPOSE_EDITS_TOOL: ACCGPTToolDefinition = {
+export const PROPOSE_EDITS_TOOL: CERNLiteLLMToolDefinition = {
   type: 'function',
   function: {
     name: 'propose_edits',
@@ -112,7 +112,7 @@ export const PROPOSE_EDITS_TOOL: ACCGPTToolDefinition = {
 /**
  * Get all available tools as an array
  */
-export function getToolDefinitions(): ACCGPTToolDefinition[] {
+export function getToolDefinitions(): CERNLiteLLMToolDefinition[] {
   return [GET_CONTEXT_TOOL, PROPOSE_EDITS_TOOL];
 }
 

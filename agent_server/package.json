@@ -1,18 +1,18 @@
 {
   "name": "octra-agent-server",
   "version": "1.0.0",
-  "description": "AI Agent service for Octree LaTeX Editor (supports ACCGPT and Claude)",
-  "main": "agent-service-accgpt.ts",
+  "description": "AI Agent service for Octree LaTeX Editor (supports CERN LiteLLM and Claude)",
+  "main": "agent-service-cern-litellm.ts",
   "scripts": {
-    "start": "tsx agent-service-accgpt.ts",
+    "start": "tsx agent-service-cern-litellm.ts",
     "start:claude": "tsx agent-service.ts",
-    "dev": "tsx watch agent-service-accgpt.ts",
+    "dev": "tsx watch agent-service-cern-litellm.ts",
     "dev:claude": "tsx watch agent-service.ts",
     "build": "tsc",
     "deploy": "bash deploy.sh"
   },
   "keywords": [
-    "accgpt",
+    "cern-litellm",
     "agent",
     "latex",
     "ai"

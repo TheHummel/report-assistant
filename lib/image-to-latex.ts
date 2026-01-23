@@ -10,7 +10,7 @@ export interface ImageToLatexResult {
 }
 
 /**
- * Extract content from an image using GPT-4o-mini vision
+ * Extract content from an image using CERN LiteLLM API
  * @param imageDataUrl - Data URL of the image (data:image/png;base64,...)
  * @param fileName - Name of the file for context
  * @returns Text description of image content

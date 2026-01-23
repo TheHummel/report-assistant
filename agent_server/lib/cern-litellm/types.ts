@@ -1,21 +1,21 @@
 /**
- * Type definitions for ACCGPT API
- * Based on the Groq-compatible response format
+ * Type definitions for CERN LiteLLM API
+ * Based on the OpenAI-compatible response format
  */
 
 // ============================================================================
 // Request Types
 // ============================================================================
 
-export interface ACCGPTMessage {
+export interface CERNLiteLLMMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | ACCGPTContentPart[];
-  tool_calls?: ACCGPTToolCall[];
+  content: string | CERNLiteLLMContentPart[];
+  tool_calls?: CERNLiteLLMToolCall[];
   tool_call_id?: string;
   name?: string;
 }
 
-export interface ACCGPTContentPart {
+export interface CERNLiteLLMContentPart {
   type: 'text' | 'image_url';
   text?: string;
   image_url?: {
@@ -23,7 +23,7 @@ export interface ACCGPTContentPart {
   };
 }
 
-export interface ACCGPTToolCall {
+export interface CERNLiteLLMToolCall {
   id: string;
   type: 'function';
   function: {
@@ -32,7 +32,7 @@ export interface ACCGPTToolCall {
   };
 }
 
-export interface ACCGPTToolDefinition {
+export interface CERNLiteLLMToolDefinition {
   type: 'function';
   function: {
     name: string;
@@ -45,13 +45,13 @@ export interface ACCGPTToolDefinition {
   };
 }
 
-export interface ACCGPTRequest {
-  messages: ACCGPTMessage[];
+export interface CERNLiteLLMRequest {
+  messages: CERNLiteLLMMessage[];
   model: string;
   max_tokens?: number;
   temperature?: number;
   n?: number;
-  tools?: ACCGPTToolDefinition[];
+  tools?: CERNLiteLLMToolDefinition[];
   tool_choice?:
     | 'auto'
     | 'none'
@@ -62,38 +62,38 @@ export interface ACCGPTRequest {
 // Response Types
 // ============================================================================
 
-export interface ACCGPTResponse {
-  steps: ACCGPTStep[];
+export interface CERNLiteLLMResponse {
+  steps: CERNLiteLLMStep[];
 }
 
-export interface ACCGPTStep {
-  content: ACCGPTContentPart[];
+export interface CERNLiteLLMStep {
+  content: CERNLiteLLMContentPart[];
   finishReason: 'stop' | 'tool_calls' | 'length' | 'content_filter';
-  usage: ACCGPTUsage;
+  usage: CERNLiteLLMUsage;
   warnings: unknown[];
   request: {
-    body: ACCGPTRequest;
+    body: CERNLiteLLMRequest;
   };
-  response: ACCGPTInnerResponse;
+  response: CERNLiteLLMInnerResponse;
   providerMetadata?: unknown;
 }
 
-export interface ACCGPTUsage {
+export interface CERNLiteLLMUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
 }
 
-export interface ACCGPTInnerResponse {
+export interface CERNLiteLLMInnerResponse {
   id: string;
   timestamp: string;
   modelId: string;
-  body: ACCGPTResponseBody;
-  messages: ACCGPTMessage[];
+  body: CERNLiteLLMResponseBody;
+  messages: CERNLiteLLMMessage[];
 }
 
-export interface ACCGPTResponseBody {
-  choices: ACCGPTChoice[];
+export interface CERNLiteLLMResponseBody {
+  choices: CERNLiteLLMChoice[];
   created: number;
   id: string;
   model: string;
@@ -113,18 +113,18 @@ export interface ACCGPTResponseBody {
   x_groq?: { id: string };
 }
 
-export interface ACCGPTChoice {
+export interface CERNLiteLLMChoice {
   finish_reason: 'stop' | 'tool_calls' | 'length' | 'content_filter';
   index: number;
   logprobs: unknown;
-  message: ACCGPTChoiceMessage;
+  message: CERNLiteLLMChoiceMessage;
 }
 
-export interface ACCGPTChoiceMessage {
+export interface CERNLiteLLMChoiceMessage {
   content: string | null;
   reasoning?: string;
   role: 'assistant';
-  tool_calls?: ACCGPTToolCall[];
+  tool_calls?: CERNLiteLLMToolCall[];
 }
 
 // ============================================================================

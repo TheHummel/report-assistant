@@ -1,5 +1,5 @@
 /**
- * ACCGPT module exports
+ * CERN LiteLLM module exports
  */
 
 export * from './types';

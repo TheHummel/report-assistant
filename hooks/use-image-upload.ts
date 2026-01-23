@@ -47,7 +47,7 @@ export function useImageUpload({
           imageName
         );
 
-        // Step 2: extract content from image using ACCGPT
+        // Step 2: extract content from image using CERN LiteLLM API
         const imageAnalysisResult = await convertImageToLatex(
           data.image,
           imageName
