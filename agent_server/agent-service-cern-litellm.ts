@@ -19,15 +19,10 @@ import {
   buildNumberedContent,
   buildSystemPrompt,
   inferIntent,
-  buildInitializationPrompt,
 } from './lib/octra-agent';
-import { generateInitializationEdits } from './lib/octra-agent/report-initialization';
-import { loadInitState, saveInitState } from './lib/init-state-store';
-import { INIT_TARGET_FILES } from '@shared/report-init-config';
-import {
-  buildImageDescriptionPrompt,
-  buildImageDescriptionUserPrompt,
-} from './lib/octra-agent/content-processing';
+import { loadInitState } from './lib/init-state-store';
+import { createImageToLatexRouter } from './routes/image-to-latex';
+import { createAgentInitRouter } from './routes/agent-init';
 import {
   getToolDefinitions,
   executeToolCall,
@@ -55,6 +50,23 @@ const CERN_LITELLM_MODEL = process.env.CERN_LITELLM_MODEL!;
 const CERN_LITELLM_VISION_MODEL = process.env.CERN_LITELLM_VISION_MODEL!;
 const MAX_AGENT_ITERATIONS = 10; // Safety limit for agentic loop
 const TOOL_CALL_DELAY_MS = parseInt(process.env.TOOL_CALL_DELAY_MS || '0', 10);
+
+// ============================================================================
+// Mount Route Modules
+// ============================================================================
+
+// Image-to-LaTeX route
+app.use(
+  '/agent',
+  createImageToLatexRouter({
+    cernLiteLLMUrl: CERN_LITELLM_URL,
+    cernLiteLLMApiKey: CERN_LITELLM_API_KEY,
+    cernLiteLLMVisionModel: CERN_LITELLM_VISION_MODEL,
+  })
+);
+
+// Report initialization routes
+app.use('/agent', createAgentInitRouter());
 
 // ============================================================================
 // Helper Functions
@@ -172,277 +184,6 @@ function isComplete(response: CERNLiteLLMResponse): boolean {
     step.finishReason || step.response?.body?.choices?.[0]?.finish_reason;
   return finishReason === 'stop' || finishReason === 'length';
 }
-
-// ============================================================================
-// Image-to-LaTeX Endpoint
-// ============================================================================
-
-app.post(
-  '/agent/image-to-latex',
-  async (req: express.Request, res: express.Response) => {
-    try {
-      const { image, fileName } = req.body;
-
-      if (!image) {
-        return res.status(400).send('Image is required');
-      }
-
-      // Ensure image is in data URL format
-      const imageDataUrl = image.startsWith('data:')
-        ? image
-        : `data:image/jpeg;base64,${image}`;
-
-      // Validate config
-      if (
-        !CERN_LITELLM_URL ||
-        !CERN_LITELLM_API_KEY ||
-        !CERN_LITELLM_VISION_MODEL
-      ) {
-        console.error('[Image-to-LaTeX] Missing required configuration:', {
-          hasApiUrl: !!CERN_LITELLM_URL,
-          hasApiKey: !!CERN_LITELLM_API_KEY,
-          hasVisionModel: !!CERN_LITELLM_VISION_MODEL,
-        });
-        return res
-          .status(503)
-          .send(
-            'CERN LiteLLM configuration missing. Please check CERN_LITELLM_URL, CERN_LITELLM_API_KEY and CERN_LITELLM_VISION_MODEL environment variables.'
-          );
-      }
-
-      // Build prompts using centralized functions
-      const systemPrompt = buildImageDescriptionPrompt();
-      const userPromptText = buildImageDescriptionUserPrompt(fileName);
-
-      // Call CERN LiteLLM Vision API
-      const response = await fetch(CERN_LITELLM_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': CERN_LITELLM_API_KEY,
-        },
-        body: JSON.stringify({
-          model: CERN_LITELLM_VISION_MODEL,
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: userPromptText,
-                },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: imageDataUrl,
-                  },
-                },
-              ],
-            },
-          ],
-          max_tokens: 512,
-          temperature: 0.1,
-          stream: false,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[Image-to-LaTeX] CERN LiteLLM API error:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText,
-        });
-
-        return res
-          .status(500)
-          .send(`Failed to process image: ${response.status} ${errorText}`);
-      }
-
-      // Parse response
-      const data = (await response.json()) as any;
-      let content = '';
-
-      if (data.choices?.[0]?.message?.content) {
-        content = data.choices[0].message.content;
-      }
-      // Check for wrapped format
-      else if (data.steps?.[0]?.content) {
-        const step = data.steps[0];
-        const textContent = step.content.find((c: any) => c.type === 'text');
-        content = textContent?.text || '';
-      } else if (
-        data.steps?.[0]?.response?.body?.choices?.[0]?.message?.content
-      ) {
-        content = data.steps[0].response.body.choices[0].message.content;
-      }
-
-      if (!content) {
-        console.error('[Image-to-LaTeX] No content in response:', data);
-        return res.status(500).send('No content extracted from image');
-      }
-
-      res.setHeader('Content-Type', 'text/plain');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.send(content);
-    } catch (error) {
-      console.error('[Image-to-LaTeX] Error:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      res.status(500).send(`Internal server error: ${errorMessage}`);
-    }
-  }
-);
-
-// ============================================================================
-// Report Initialization Endpoint
-// ============================================================================
-
-app.post('/agent/init', async (req: express.Request, res: express.Response) => {
-  try {
-    const { reportInitState, projectFiles, projectId, userId } = req.body || {};
-
-    if (!reportInitState || typeof reportInitState !== 'object') {
-      return res.status(400).json({
-        error: 'reportInitState is required',
-      });
-    }
-
-    if (!Array.isArray(projectFiles) || projectFiles.length === 0) {
-      return res.status(400).json({
-        error: 'projectFiles is required (filtered text files only)',
-      });
-    }
-
-    const stateKey = projectId || userId || 'default';
-
-    console.log('[Init] Generating edits for:', stateKey);
-
-    // find all target files from INIT_TARGET_FILES
-    const targetFiles = projectFiles.filter((file) =>
-      INIT_TARGET_FILES.some(
-        (targetPath) =>
-          file.path === targetPath || file.path.endsWith(`/${targetPath}`)
-      )
-    );
-
-    if (targetFiles.length === 0) {
-      return res.status(404).json({
-        error: `No target files found. Expected: ${INIT_TARGET_FILES.join(', ')}`,
-        hint: 'Make sure target files are included in projectFiles',
-      });
-    }
-
-    console.log(
-      `[Init] Found ${targetFiles.length} target file(s):`,
-      targetFiles.map((f) => f.path)
-    );
-
-    // set up SSE response
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('Connection', 'keep-alive');
-    res.setHeader('X-Accel-Buffering', 'no');
-
-    const writeEvent = (event: string, data: unknown) => {
-      res.write(`event: ${event}\n`);
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
-
-    writeEvent('status', { state: 'started' });
-
-    // --- DETERMINISTIC EDITS ---
-    const allEdits: LineEdit[] = [];
-
-    for (const targetFile of targetFiles) {
-      const edits = generateInitializationEdits(
-        reportInitState,
-        targetFile.content,
-        targetFile.path
-      );
-
-      edits.forEach((edit) => {
-        if (!edit.filePath) {
-          edit.filePath = targetFile.path;
-        }
-      });
-
-      allEdits.push(...edits);
-    }
-
-    // TODO: refine edits with CERN LiteLLM + GenAI edits for sections information provided from user
-
-    console.log(`[Init] Generated ${allEdits.length} total edits`);
-
-    // store state for later reference by agent
-    await saveInitState(stateKey, reportInitState);
-
-    // emit edits
-    if (allEdits.length > 0) {
-      writeEvent('tool', {
-        name: 'propose_edits',
-        count: allEdits.length,
-      });
-      writeEvent('edits', allEdits);
-    }
-
-    // send completion
-    writeEvent('done', {
-      text: `Generated ${allEdits.length} initialization edits for ${targetFiles.length} file(s). State saved for project.`,
-    });
-
-    res.end();
-  } catch (error) {
-    console.error('[Init] Error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
-
-    if (!res.headersSent) {
-      res.status(500).json({
-        error: 'Failed to generate initialization edits',
-        details: message,
-      });
-    } else {
-      res.write(`event: error\n`);
-      res.write(`data: ${JSON.stringify({ message })}\n\n`);
-      res.end();
-    }
-  }
-});
-
-// GET /agent/init/:key - Retrieve stored initialization state
-app.get(
-  '/agent/init/:key',
-  async (req: express.Request, res: express.Response) => {
-    try {
-      const { key } = req.params;
-
-      if (!key) {
-        return res.status(400).json({ error: 'State key is required' });
-      }
-
-      const state = await loadInitState(key);
-
-      if (!state) {
-        return res.status(404).json({
-          error: 'No initialization state found for this key',
-        });
-      }
-
-      return res.json({ state });
-    } catch (error) {
-      console.error('[Init] Error loading state:', error);
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      return res.status(500).json({
-        error: 'Failed to load initialization state',
-        details: message,
-      });
-    }
-  }
-);
 
 // ============================================================================
 // Main Agent Endpoint
