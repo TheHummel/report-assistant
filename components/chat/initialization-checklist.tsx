@@ -58,15 +58,16 @@ export function InitializationChecklist({
 
     // get current value
     if (category === 'required_fields') {
-      setEditValue(
-        state.required_fields[key as keyof typeof state.required_fields] || ''
-      );
+      const value =
+        state.required_fields[key as keyof typeof state.required_fields];
+      setEditValue(typeof value === 'string' ? value : '');
     } else if (category === 'sections') {
       setEditValue(
         state.sections[key as keyof typeof state.sections]?.content || ''
       );
     } else if (category === 'other') {
-      setEditValue(state.other[key as keyof typeof state.other] || '');
+      const value = state.other[key as keyof typeof state.other];
+      setEditValue(typeof value === 'string' ? value : '');
     }
   };
 
@@ -128,10 +129,11 @@ export function InitializationChecklist({
             {REPORT_QUESTIONS.filter(
               (q) => q.category === 'required_fields'
             ).map((question) => {
-              const hasValue =
+              const fieldValue =
                 state.required_fields[
                   question.key as keyof typeof state.required_fields
                 ];
+              const hasValue = Boolean(fieldValue);
               const isEditing = editingField === question.key;
 
               return (
