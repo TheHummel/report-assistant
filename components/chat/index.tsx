@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
   Loader2,
@@ -9,7 +10,6 @@ import {
   ChevronsRight,
   ChevronRight,
 } from 'lucide-react';
-import { OctreeLogo } from '@/components/icons/octree-logo';
 import { EditSuggestion } from '@/types/edit';
 import { useChatStream } from './use-chat-stream';
 import { useEditProposals } from './use-edit-proposals';
@@ -645,10 +645,17 @@ export function Chat({
     <div className="fixed bottom-4 right-4 z-20 h-[610px] w-96 rounded-md border border-blue-100 bg-white shadow-2xl transition-all duration-200">
       <div className="flex items-center justify-between border-b border-blue-100/50 px-4 py-2">
         <div className="flex items-center space-x-3">
-          <OctreeLogo className="h-6 w-6" />
+          <Image
+            src="/report-assistant-icon.jpg"
+            alt="Report Assistant Logo"
+            width={48}
+            height={48}
+            className="rounded-xl"
+            unoptimized
+          />
           <div>
-            <h3 className="font-semibold text-blue-800">Octra</h3>
-            <p className="text-xs text-slate-500">LaTeX Assistant</p>
+            <h3 className="font-semibold text-blue-800">Report Assistant</h3>
+            {/* <p className="text-xs text-slate-500">LaTeX Assistant</p> */}
           </div>
         </div>
 
