@@ -299,6 +299,7 @@ export function useChatStream() {
   }, []);
 
   return {
+    startInitStream,
     startStream,
     parseStream,
     stopStream,
