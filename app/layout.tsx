@@ -21,8 +21,11 @@ const satoshi = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Octree',
-  description: 'A latex editor that uses AI to help you write latex',
+  title: 'Report Assistant',
+  description: 'A LaTeX editor that uses AI to help writing reports faster.',
+  icons: {
+    icon: '/report-assistant-icon.jpg',
+  },
 };
 
 export default async function RootLayout({
