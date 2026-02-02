@@ -30,7 +30,7 @@ export default function Navbar({ userName }: NavbarProps) {
               />
               <span
                 className={cn(
-                  'text-lg font-medium tracking-tight text-neutral-900',
+                  'text-lg font-semibold tracking-tight text-blue-800',
                   dmSans.className
                 )}
               >
