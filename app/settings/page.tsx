@@ -8,8 +8,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { SubscriptionStatus } from '@/components/subscription/subscription-status';
-import { BillingSection } from '@/components/subscription/billing-section';
 import { EditProfileDialog } from '@/components/user/edit-profile-dialog';
 import { ChangePasswordDialog } from '@/components/user/change-password-dialog';
 import { User } from 'lucide-react';
@@ -70,8 +68,6 @@ export default async function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-          <SubscriptionStatus />
-          <BillingSection />
         </div>
       </main>
     </>

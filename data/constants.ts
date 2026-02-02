@@ -1,8 +1,7 @@
-// Subscription and usage limits
-export const FREE_DAILY_EDIT_LIMIT = 5;
-export const PRO_MONTHLY_EDIT_LIMIT = 500;
-export const PRO_SUBSCRIPTION_PRICE = 10; // USD per month
+// Rate limiting constants
+export const MONTHLY_EDIT_LIMIT = Infinity; // Set to a number to enforce rate limits; leave as Infinity for unlimited
 
+// Default LaTeX content templates
 export const DEFAULT_LATEX_CONTENT = (
   title: string
 ) => `\\documentclass{article}

@@ -4,9 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 // Import helper modules
 import { createSSEHeaders } from '@/lib/octra-agent/stream-handling';
 
-// Disable quota checks
-const DISABLE_QUOTA_CHECKS = true;
-
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
@@ -20,13 +17,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in to use AI features.' },
         { status: 401 }
-      );
-    }
-
-    // Skip all quota checks when disabled
-    if (DISABLE_QUOTA_CHECKS) {
-      console.log(
-        `[Octra Proxy] Quota checks disabled, allowing request for user: ${user.email}`
       );
     }
 

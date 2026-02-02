@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { FREE_DAILY_EDIT_LIMIT } from '@/data/constants';
+import { MONTHLY_EDIT_LIMIT } from '@/data/constants';
 
 interface EditLimitStatus {
   canEdit: boolean;
@@ -18,14 +18,11 @@ interface EditLimitStatus {
 
 const CACHE_DURATION = 30000; // 30 seconds
 
-// disable quota checks
-const DISABLE_QUOTA_CHECKS = true;
-
 export function useEditLimitCache() {
   const [status, setStatus] = useState<EditLimitStatus>({
     canEdit: true,
     editCount: 0,
-    limit: DISABLE_QUOTA_CHECKS ? Infinity : FREE_DAILY_EDIT_LIMIT,
+    limit: MONTHLY_EDIT_LIMIT,
     isLoading: false,
     lastChecked: null,
   });
@@ -34,10 +31,6 @@ export function useEditLimitCache() {
 
   const fetchLimitStatus = useCallback(
     async (force: boolean) => {
-      if (DISABLE_QUOTA_CHECKS) {
-        return { ...status, canEdit: true };
-      }
-
       const now = Date.now();
 
       // Use cache if recent and not forced

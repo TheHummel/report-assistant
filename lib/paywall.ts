@@ -1,9 +1,5 @@
-const UNLIMITED_EDIT_EMAILS = [
-  'rascodes123@gmail.com',
-  'basilyusuf1709@gmail.com',
-  'zainsajidnust@gmail.com',
-  'faizmustansar10@gmail.com',
-] as const;
+// List of emails that have unlimited edit access
+const UNLIMITED_EDIT_EMAILS: readonly string[] = [];
 
 const unlimitedEmailSet = new Set(
   UNLIMITED_EDIT_EMAILS.map((email) => email.toLowerCase())

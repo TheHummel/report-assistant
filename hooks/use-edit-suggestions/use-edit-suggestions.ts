@@ -57,9 +57,7 @@ export function useEditSuggestions({
     async (suggestionId: string) => {
       // Fast check using cached status
       if (!canEdit) {
-        toast.error(
-          'You have reached your edit limit. Please upgrade to Pro for 200 edits per month.'
-        );
+        toast.error('You have reached your edit limit.');
         return;
       }
 
@@ -91,9 +89,7 @@ export function useEditSuggestions({
 
     // Fast check using cached status
     if (!canEdit) {
-      toast.error(
-        'You have reached your edit limit. Please upgrade to Pro for 200 edits per month.'
-      );
+      toast.error('You have reached your edit limit.');
       return;
     }
 

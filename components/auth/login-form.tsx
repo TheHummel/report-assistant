@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import GoogleLogo from '@/components/icons/google-logo';
+import { toast } from 'sonner';
 
 interface LoginFormProps extends React.ComponentPropsWithoutRef<'div'> {
   nextPath?: string;
@@ -44,6 +45,7 @@ export function LoginForm({
         password,
       });
       if (error) throw error;
+      toast.success('Logged in successfully!');
       router.push(nextPath);
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'An error occurred');
@@ -126,7 +128,12 @@ export function LoginForm({
 
           <form onSubmit={handleSocialLogin}>
             <div className="mt-2">
-              <Button type="submit" variant="outline" className="w-full" disabled={isLoading}>
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full"
+                disabled={isLoading}
+              >
                 <GoogleLogo />
                 Continue with Google
               </Button>

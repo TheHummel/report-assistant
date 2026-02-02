@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -12,21 +11,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { CancelSubscriptionDialog } from '@/components/subscription/cancel-subscription-dialog';
-import {
-  User,
-  Settings,
-  LogOut,
-  ChevronDown,
-  MessageCircle,
-} from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown } from 'lucide-react';
 
 interface UserProfileDropdownProps {
   userName: string | null;
 }
 
 export function UserProfileDropdown({ userName }: UserProfileDropdownProps) {
-  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -58,11 +49,6 @@ export function UserProfileDropdown({ userName }: UserProfileDropdownProps) {
             Settings
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={() => router.push('/contact')}>
-            <MessageCircle className="mr-2 h-4 w-4" />
-            Contact Us
-          </DropdownMenuItem>
-
           <DropdownMenuSeparator />
 
           <DropdownMenuItem onClick={handleLogout}>
@@ -71,11 +57,6 @@ export function UserProfileDropdown({ userName }: UserProfileDropdownProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <CancelSubscriptionDialog
-        open={isCancelDialogOpen}
-        onOpenChange={setIsCancelDialogOpen}
-      />
     </>
   );
 }

@@ -4,7 +4,6 @@ import { CreateProjectDialog } from '@/components/projects/create-project-dialog
 import { ProjectsTable } from '@/components/projects/projects-table';
 import Navbar from '@/components/navbar';
 import { getAllProjects } from '@/actions/get-projects';
-import { getUserUsage } from '@/lib/requests/user';
 
 export default async function Dashboard() {
   const supabase = await createClient();
@@ -14,12 +13,6 @@ export default async function Dashboard() {
 
   if (!user) {
     redirect('/auth/login');
-  }
-
-  const usage = await getUserUsage(supabase, user.id);
-
-  if (!usage?.onboarding_completed) {
-    redirect('/onboarding');
   }
 
   const userName = user?.user_metadata?.name ?? user?.email ?? null;

@@ -43,11 +43,6 @@ Create a `.env.local` file in the root directory with the following variables:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-# Stripe Configuration (Required for billing features)
-STRIPE_PROD_SECRET_KEY=your_stripe_secret_key
-STRIPE_TEST_SECRET_KEY=your_stripe_test_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-
 # AI Provider Key (Required for AI editing features)
 OPENAI_API_KEY=your_openai_api_key
 
@@ -59,7 +54,6 @@ NODE_ENV=development
 #### Getting Your Keys:
 
 - **Supabase**: Sign up at [supabase.com](https://supabase.com), create a project, and get your URL and anon key from Project Settings > API
-- **Stripe**: Get API keys from [stripe.com/dashboard](https://dashboard.stripe.com/apikeys)
 - **OpenAI**: Get API key from [platform.openai.com](https://platform.openai.com/api-keys) - The app uses GPT-5 with smart model selection (GPT-5 mini for small tasks, GPT-5 for large/complex files)
 
 ### 4. Database Setup
@@ -164,8 +158,7 @@ ai-latex-editor/
 - 📝 **Monaco Editor** - Advanced code editing with syntax highlighting
 - 📄 **Real-time PDF Compilation** - Instant preview of your LaTeX documents
 - 👥 **Authentication** - Secure user auth via Supabase
-- 💳 **Subscription Management** - Stripe integration for billing
-- 📊 **Usage Tracking** - Monitor API usage and limits
+- **Usage Tracking** - Monitor API usage and limits
 
 ## Troubleshooting
 
@@ -194,7 +187,6 @@ ai-latex-editor/
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Supabase Documentation](https://supabase.com/docs)
-- [Stripe Documentation](https://stripe.com/docs)
 - [Monaco Editor](https://microsoft.github.io/monaco-editor/)
 
 ## Deploy on Vercel

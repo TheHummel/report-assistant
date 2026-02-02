@@ -62,7 +62,8 @@ create table if not exists drafts (
   created_at timestamptz default now()
 );
 
--- User usage table (for tracking usage and subscriptions)
+-- User usage table (for internal usage tracking)
+-- Tracks edit counts for monitoring and potential rate limiting
 create table if not exists user_usage (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references auth.users(id) on delete cascade unique,
@@ -70,15 +71,6 @@ create table if not exists user_usage (
   daily_reset_date date default current_date,
   monthly_edit_count integer default 0,
   monthly_reset_date date default current_date,
-  is_pro boolean default false,
-  stripe_customer_id text,
-  stripe_subscription_id text,
-  subscription_status text,
-  current_period_start timestamptz,
-  current_period_end timestamptz,
-  cancel_at_period_end boolean default false,
-  onboarding_completed boolean default false,
-  referral_source text,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -236,13 +228,25 @@ language plpgsql
 security definer
 as $$
 declare
-  v_daily_reset date;
-  v_monthly_reset date;
+  current_edit_count integer;
+  current_monthly_count integer;
+  edit_limit integer := 2147483647; -- Effectively unlimited. Change to enforce limits.
 begin
   -- Get or create user usage record
   insert into user_usage (user_id, edit_count, daily_reset_date, monthly_edit_count, monthly_reset_date)
   values (p_user_id, 0, current_date, 0, date_trunc('month', current_date)::date)
   on conflict (user_id) do nothing;
+
+  -- Get current counts
+  select edit_count, monthly_edit_count
+  into current_edit_count, current_monthly_count
+  from user_usage
+  where user_id = p_user_id;
+
+  -- Check if user has reached limit
+  if current_monthly_count >= edit_limit then
+    return false;
+  end if;
 
   -- Update with reset logic
   update user_usage
@@ -263,55 +267,6 @@ begin
   where user_id = p_user_id;
 
   return true;
-end;
-$$;
-
--- Function to update subscription status
-create or replace function update_user_subscription_status(
-  p_user_id uuid,
-  p_stripe_customer_id text,
-  p_stripe_subscription_id text,
-  p_subscription_status text,
-  p_current_period_start timestamptz,
-  p_current_period_end timestamptz,
-  p_cancel_at_period_end boolean
-)
-returns void
-language plpgsql
-security definer
-as $$
-begin
-  insert into user_usage (
-    user_id,
-    stripe_customer_id,
-    stripe_subscription_id,
-    subscription_status,
-    current_period_start,
-    current_period_end,
-    cancel_at_period_end,
-    is_pro,
-    updated_at
-  )
-  values (
-    p_user_id,
-    p_stripe_customer_id,
-    p_stripe_subscription_id,
-    p_subscription_status,
-    p_current_period_start,
-    p_current_period_end,
-    p_cancel_at_period_end,
-    p_subscription_status = 'active',
-    now()
-  )
-  on conflict (user_id) do update set
-    stripe_customer_id = p_stripe_customer_id,
-    stripe_subscription_id = p_stripe_subscription_id,
-    subscription_status = p_subscription_status,
-    current_period_start = p_current_period_start,
-    current_period_end = p_current_period_end,
-    cancel_at_period_end = p_cancel_at_period_end,
-    is_pro = p_subscription_status = 'active',
-    updated_at = now();
 end;
 $$;
 
