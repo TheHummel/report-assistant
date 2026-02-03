@@ -21,7 +21,7 @@ import type {
   EditPattern,
   SectionStatus,
   ReportSection,
-} from './report-init-types';
+} from '@report-templates/report-init-types';
 
 // ============================================================================
 // TEMPLATE METADATA
@@ -218,7 +218,7 @@ export const EDIT_PATTERNS: EditPattern<RequiredFields>[] = [
  * Validates that this config satisfies the ReportInitConfig contract.
  * Compile-time type safety for report initialization configs.
  */
-import { validateReportConfig } from './report-init-types';
+import { validateReportConfig } from '@report-templates/report-init-types';
 
 export const VALIDATED_CONFIG = validateReportConfig<
   RequiredFields,
