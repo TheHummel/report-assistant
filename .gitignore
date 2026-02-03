@@ -47,5 +47,6 @@ digitalocean_compile/README.md
 
 # report templates
 report-templates/*/
+!report-templates/thesis-template
 
 agent_server/data
