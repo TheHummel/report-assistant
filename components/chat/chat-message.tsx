@@ -128,38 +128,43 @@ export function ChatMessageComponent({
   return (
     <div
       className={cn(
-        'shadow-xs mb-4 min-w-0 break-words rounded-lg border',
-        message.role === 'assistant'
-          ? 'border-slate-200 bg-gradient-to-br from-blue-50 to-blue-50/50 p-3'
-          : 'border-slate-200 bg-white p-3'
+        'mb-4 flex',
+        message.role === 'assistant' ? 'justify-start' : 'justify-end'
       )}
     >
-      <div className="mb-1 text-sm font-semibold text-blue-800">
-        {message.role === 'assistant' ? 'Octra' : 'You'}
-      </div>
-
-      <div className="min-w-0 overflow-hidden whitespace-pre-wrap break-words text-sm text-slate-800">
-        {message.role === 'assistant' && !message.content && isLoading ? (
-          <div className="flex items-end gap-1.5">
-            <span className="animate-pulse text-sm text-slate-500">
-              Thinking
-            </span>
-            <div className="flex items-center space-x-0.5 pb-1">
-              <div className="h-1 w-1 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]"></div>
-              <div className="h-1 w-1 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]"></div>
-              <div className="h-1 w-1 animate-bounce rounded-full bg-slate-400"></div>
-            </div>
-          </div>
-        ) : (
-          renderMessageContent(message.content)
+      <div
+        className={cn(
+          'shadow-xs min-w-0 break-words rounded-lg shadow-sm',
+          message.role === 'assistant'
+            ? 'border-slate-200 bg-gradient-to-br from-blue-50 to-blue-50/50 p-3'
+            : 'border-slate-200 bg-white p-3'
         )}
-      </div>
-
-      {message.role === 'assistant' && !textFromEditor && proposalIndicator && (
-        <div className="mt-3 border-t border-blue-100 pt-3">
-          <ProposalIndicator indicator={proposalIndicator} />
+      >
+        <div className="min-w-0 overflow-hidden whitespace-pre-wrap break-words text-sm text-slate-800">
+          {message.role === 'assistant' && !message.content && isLoading ? (
+            <div className="flex items-end gap-1.5">
+              <span className="animate-pulse text-sm text-slate-500">
+                Thinking
+              </span>
+              <div className="flex items-center space-x-0.5 pb-1">
+                <div className="h-1 w-1 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]"></div>
+                <div className="h-1 w-1 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]"></div>
+                <div className="h-1 w-1 animate-bounce rounded-full bg-slate-400"></div>
+              </div>
+            </div>
+          ) : (
+            renderMessageContent(message.content)
+          )}
         </div>
-      )}
+
+        {message.role === 'assistant' &&
+          !textFromEditor &&
+          proposalIndicator && (
+            <div className="mt-3 border-t border-blue-100 pt-3">
+              <ProposalIndicator indicator={proposalIndicator} />
+            </div>
+          )}
+      </div>
     </div>
   );
 }

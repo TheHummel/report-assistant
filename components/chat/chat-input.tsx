@@ -121,7 +121,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
             onSubmit(event);
           }}
           {...getRootProps()}
-          className="relative flex w-full flex-col gap-2 rounded-md border p-2"
+          className="relative mb-2 flex w-full flex-col gap-2 rounded-md border p-2"
         >
           <input {...getInputProps()} />
 
