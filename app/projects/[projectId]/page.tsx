@@ -302,7 +302,7 @@ export default function ProjectPage() {
         isSaving={isSaving}
         lastSaved={lastSaved}
         hasPdfData={!!pdfData}
-        showInitializeWithAI={hasInitConfig}
+        showInitializationOption={hasInitConfig}
       />
 
       <ResizablePanelGroup
