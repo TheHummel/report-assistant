@@ -1,40 +1,73 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { SectionStatus } from '@shared/report-init-types';
-import {
-  type ReportInitializationState,
-  INITIAL_REPORT_STATE,
-} from '@shared/report-init-config';
+import type { SectionStatus } from '@/report-templates/report-init-types';
+import { getTemplateInitialState } from '@/lib/template-config';
 
 const STORAGE_KEY = 'report-initialization-state';
 
-export function useReportInitialization(projectId: string) {
+interface GenericReportInitializationState {
+  required_fields: Record<string, unknown>;
+  sections: Record<string, { status: SectionStatus; content?: string }>;
+  other: Record<string, unknown>;
+  completed: boolean;
+  last_updated?: Date;
+}
+
+export function useReportInitialization(
+  projectId: string,
+  templateId?: string | null
+) {
   const storageKey = `${STORAGE_KEY}-${projectId}`;
 
-  const [state, setState] =
-    useState<ReportInitializationState>(INITIAL_REPORT_STATE);
+  const [state, setState] = useState<GenericReportInitializationState>({
+    required_fields: {},
+    sections: {},
+    other: {},
+    completed: false,
+  });
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
-  // load from localStorage on mount
+  // Load template config and init state
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setState({
-          ...parsed,
-          last_updated: parsed.last_updated
-            ? new Date(parsed.last_updated)
-            : undefined,
-        });
+    async function loadInitialState() {
+      setIsLoadingConfig(true);
+      const templateInitState = await getTemplateInitialState(templateId);
+      const initialState: GenericReportInitializationState = {
+        required_fields: {},
+        sections: {},
+        other: {},
+        completed: false,
+        ...(templateInitState as Partial<GenericReportInitializationState>),
+      };
+
+      // try loading from localStorage
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setState({
+            ...parsed,
+            last_updated: parsed.last_updated
+              ? new Date(parsed.last_updated)
+              : undefined,
+          });
+        } else {
+          // no stored state, use initial state for this template
+          setState(initialState);
+        }
+      } catch (error) {
+        console.error('Failed to load state from localStorage:', error);
+        setState(initialState);
       }
-    } catch (error) {
-      console.error('Failed to load report initialization state:', error);
-    } finally {
+
       setIsLoaded(true);
+      setIsLoadingConfig(false);
     }
-  }, [storageKey]);
+
+    loadInitialState();
+  }, [projectId, templateId, storageKey]);
 
   // save to localStorage whenever state changes
   useEffect(() => {
@@ -47,29 +80,19 @@ export function useReportInitialization(projectId: string) {
     }
   }, [state, storageKey, isLoaded]);
 
-  const updateRequiredField = useCallback(
-    (
-      key: keyof ReportInitializationState['required_fields'],
-      value: string
-    ) => {
-      setState((prev) => ({
-        ...prev,
-        required_fields: {
-          ...prev.required_fields,
-          [key]: value,
-        },
-        last_updated: new Date(),
-      }));
-    },
-    []
-  );
+  const updateRequiredField = useCallback((key: string, value: string) => {
+    setState((prev) => ({
+      ...prev,
+      required_fields: {
+        ...prev.required_fields,
+        [key]: value,
+      },
+      last_updated: new Date(),
+    }));
+  }, []);
 
   const updateSection = useCallback(
-    (
-      key: keyof ReportInitializationState['sections'],
-      status: SectionStatus,
-      content?: string
-    ) => {
+    (key: string, status: SectionStatus, content?: string) => {
       setState((prev) => ({
         ...prev,
         sections: {
@@ -86,7 +109,13 @@ export function useReportInitialization(projectId: string) {
   );
 
   const reset = useCallback(() => {
-    setState(INITIAL_REPORT_STATE);
+    const resetState = {
+      required_fields: {},
+      sections: {},
+      other: {},
+      completed: false,
+    };
+    setState(resetState);
     try {
       localStorage.removeItem(storageKey);
     } catch (error) {
@@ -97,6 +126,7 @@ export function useReportInitialization(projectId: string) {
   return {
     state,
     isLoaded,
+    isLoadingConfig,
     updateRequiredField,
     updateSection,
     reset,

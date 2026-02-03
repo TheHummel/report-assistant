@@ -18,7 +18,10 @@ import { ChatMessageComponent } from './chat-message';
 import { ChatInput, ChatInputRef } from './chat-input';
 import { EmptyState } from './empty-state';
 import { InitializationChecklist } from './initialization-checklist';
-import { REPORT_QUESTIONS } from '@shared/report-init-config';
+import {
+  getTemplateQuestions,
+  type TemplateQuestion,
+} from '@/lib/template-config';
 
 interface ChatProps {
   onEditSuggestion: (edit: EditSuggestion | EditSuggestion[]) => void;
@@ -44,6 +47,7 @@ interface ChatProps {
   reportInitState?: any;
   onUpdateReportField?: (key: string, value: string, category: string) => void;
   projectId?: string;
+  templateId?: string | null;
 }
 
 interface ChatMessage {
@@ -71,7 +75,21 @@ export function Chat({
   reportInitState,
   onUpdateReportField,
   projectId,
+  templateId,
 }: ChatProps) {
+  const [reportQuestions, setReportQuestions] = useState<
+    readonly TemplateQuestion[]
+  >([]);
+
+  // load questions dynamically based on template
+  useEffect(() => {
+    async function loadQuestions() {
+      const questions = await getTemplateQuestions(templateId);
+      setReportQuestions(questions);
+    }
+    loadQuestions();
+  }, [templateId]);
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -158,7 +176,7 @@ export function Chat({
 
     // logic for report-initialization mode
     if (initializationMode && isInQuestioningMode && onUpdateReportField) {
-      const currentQuestion = REPORT_QUESTIONS[currentQuestionIndex];
+      const currentQuestion = reportQuestions[currentQuestionIndex];
       if (currentQuestion) {
         // save the answer
         onUpdateReportField(
@@ -176,8 +194,8 @@ export function Chat({
         setInput('');
 
         // move to next question or finish
-        if (currentQuestionIndex < REPORT_QUESTIONS.length - 1) {
-          const nextQuestion = REPORT_QUESTIONS[currentQuestionIndex + 1];
+        if (currentQuestionIndex < reportQuestions.length - 1) {
+          const nextQuestion = reportQuestions[currentQuestionIndex + 1];
           setCurrentQuestionIndex(currentQuestionIndex + 1);
 
           const assistantMsg: ChatMessage = {
@@ -193,11 +211,16 @@ export function Chat({
             id: `${Date.now()}-assistant`,
             role: 'assistant',
             content:
-              "Great! I've collected all information. You can now generate report suggestions, or continue adding more details by answering specific questions.",
+              "Great! I've collected all information. Returning to the checklist...",
           };
           setMessages((prev) => [...prev, assistantMsg]);
+
+          // clear messages and exit questioning mode
+
           setIsInQuestioningMode(false);
-          scrollToBottom();
+          setTimeout(() => {
+            setMessages([]);
+          }, 1500);
         }
 
         return;
@@ -441,8 +464,8 @@ export function Chat({
     setMessages((prev) => [...prev, skipMsg]);
 
     // move to next question or finish
-    if (currentQuestionIndex < REPORT_QUESTIONS.length - 1) {
-      const nextQuestion = REPORT_QUESTIONS[currentQuestionIndex + 1];
+    if (currentQuestionIndex < reportQuestions.length - 1) {
+      const nextQuestion = reportQuestions[currentQuestionIndex + 1];
       setCurrentQuestionIndex(currentQuestionIndex + 1);
 
       const assistantMsg: ChatMessage = {
@@ -457,12 +480,15 @@ export function Chat({
       const assistantMsg: ChatMessage = {
         id: `${Date.now()}-assistant`,
         role: 'assistant',
-        content:
-          "That's all the questions! You can now generate report suggestions with the information you've provided.",
+        content: "That's all the questions! Returning to the checklist...",
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      // clear messages and exit questioning mode
       setIsInQuestioningMode(false);
-      scrollToBottom();
+      setTimeout(() => {
+        setMessages([]);
+      }, 1500);
     }
   };
 
@@ -470,8 +496,8 @@ export function Chat({
     // find first unanswered question
     let startIndex = 0;
     if (reportInitState) {
-      for (let i = 0; i < REPORT_QUESTIONS.length; i++) {
-        const q = REPORT_QUESTIONS[i];
+      for (let i = 0; i < reportQuestions.length; i++) {
+        const q = reportQuestions[i];
         const hasAnswer =
           q.category === 'required_fields'
             ? !!reportInitState.required_fields[q.key]
@@ -487,7 +513,7 @@ export function Chat({
     setCurrentQuestionIndex(startIndex);
     setIsInQuestioningMode(true);
 
-    const firstQuestion = REPORT_QUESTIONS[startIndex];
+    const firstQuestion = reportQuestions[startIndex];
     const welcomeMsg: ChatMessage = {
       id: `${Date.now()}-assistant`,
       role: 'assistant',
@@ -538,7 +564,8 @@ export function Chat({
       const { response } = await startInitStream(
         reportInitState,
         textFiles,
-        projectId
+        projectId,
+        templateId
       );
 
       if (!response.ok || !response.body) {
@@ -702,6 +729,7 @@ export function Chat({
               {initializationMode && reportInitState ? (
                 <InitializationChecklist
                   state={reportInitState}
+                  questions={reportQuestions}
                   onStartQuestioning={handleStartQuestioning}
                   onGenerateSuggestions={handleGenerateSuggestions}
                   onUpdateField={onUpdateReportField || (() => {})}

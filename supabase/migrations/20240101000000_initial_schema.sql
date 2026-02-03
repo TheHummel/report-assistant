@@ -13,6 +13,7 @@ create table if not exists projects (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
+  template_id text default null,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

@@ -45,6 +45,7 @@ tmp/
 
 digitalocean_compile/README.md
 
-public/radiation-test-report-template-master
+# report templates
+report-templates/*/
 
 agent_server/data

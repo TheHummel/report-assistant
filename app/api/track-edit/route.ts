@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { hasUnlimitedEdits } from '@/lib/paywall';
 import type { TablesInsert, TablesUpdate } from '@/database.types';
-import { MONTHLY_EDIT_LIMIT } from '@/data/constants';
+import { MONTHLY_EDIT_LIMIT } from '@/lib/constants';
 
 type UsageSlice = {
   edit_count: number;

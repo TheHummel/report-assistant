@@ -15,13 +15,11 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import {
-  type ReportInitializationState,
-  REPORT_QUESTIONS,
-} from '@shared/report-init-config';
+import type { TemplateQuestion } from '@/lib/template-config';
 
 interface InitializationChecklistProps {
-  state: ReportInitializationState;
+  state: any;
+  questions: readonly TemplateQuestion[];
   onStartQuestioning: () => void;
   onGenerateSuggestions: () => void;
   onUpdateField: (key: string, value: string, category: string) => void;
@@ -30,6 +28,7 @@ interface InitializationChecklistProps {
 
 export function InitializationChecklist({
   state,
+  questions,
   onStartQuestioning,
   onGenerateSuggestions,
   onUpdateField,
@@ -39,6 +38,8 @@ export function InitializationChecklist({
   const [totalCount, setTotalCount] = useState(0);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
+
+  const REPORT_QUESTIONS = questions;
 
   useEffect(() => {
     const requiredFieldQuestions = REPORT_QUESTIONS.filter(

@@ -1,16 +1,12 @@
 /**
  * Generic report initialization processor
- * Uses configuration from shared/report-init-config.ts
+ * Dynamically loads configuration from template config files
  *
- * All patterns, templates, and defaults are in the config.
+ * All patterns, templates, and defaults are in the template config.
  */
 
 import type { LineEdit } from './line-edits';
-import {
-  INIT_TARGET_FILES,
-  EDIT_PATTERNS,
-  type ReportInitializationState,
-} from '@shared/report-init-config';
+import { getTemplateEditPatterns } from '../template-config';
 
 /**
  * Find a block between start and end patterns
@@ -37,17 +33,31 @@ function findBlock(
 }
 
 /**
+ * Generic initialization state type
+ */
+interface InitializationState {
+  required_fields: Record<string, unknown>;
+  sections?: Record<string, unknown>;
+  other?: Record<string, unknown>;
+  completed?: boolean;
+}
+
+/**
  * Generate deterministic line edits from report initialization state
  * Uses EDIT_PATTERNS from config to determine what to modify
  */
-export function generateInitializationEdits(
-  state: ReportInitializationState,
+export async function generateInitializationEdits(
+  state: InitializationState,
   fileContent: string,
-  targetFilePath: string
-): LineEdit[] {
+  targetFilePath: string,
+  templateId: string
+): Promise<LineEdit[]> {
   const edits: LineEdit[] = [];
   const lines = fileContent.split('\n');
   const { required_fields } = state;
+
+  // Get edit patterns for this template dynamically
+  const EDIT_PATTERNS = await getTemplateEditPatterns(templateId);
 
   // Filter patterns for this specific file
   const relevantPatterns = EDIT_PATTERNS.filter(

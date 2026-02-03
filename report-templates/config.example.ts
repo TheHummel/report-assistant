@@ -5,14 +5,16 @@
  * This template shows the structure and required exports.
  *
  * Steps to create a new report config:
- * 1. Copy this file to a new name (e.g., your-report-init-config.ts)
- * 2. Define your RequiredFields interface
- * 3. Define your sections structure
- * 4. Set INIT_TARGET_FILES to the files you want to modify
- * 5. Define FIELD_DEFAULTS with placeholder values
- * 6. Define REPORT_QUESTIONS for the UI checklist
- * 7. Create template builder functions for complex structures
- * 8. Define EDIT_PATTERNS to specify what gets modified
+ * 1. Add a new directory under report-templates/ for your template with the respective files.
+ * 2. Copy this file to a new name (e.g., your-report-init-config.ts)
+ * 3. Define TEMPLATE_METADATA with template info
+ * 4. Define your RequiredFields interface
+ * 5. Define your sections structure
+ * 6. Set INIT_TARGET_FILES to the files you want to modify
+ * 7. Define FIELD_DEFAULTS with placeholder values
+ * 8. Define REPORT_QUESTIONS for the UI checklist
+ * 9. Create template builder functions for complex structures
+ * 10. Define EDIT_PATTERNS to specify what gets modified
  */
 
 import type {
@@ -20,6 +22,21 @@ import type {
   SectionStatus,
   ReportSection,
 } from './report-init-types';
+
+// ============================================================================
+// TEMPLATE METADATA
+// ============================================================================
+
+/**
+ * Template metadata for project creation UI.
+ * The 'id' must match your template folder name exactly.
+ */
+export const TEMPLATE_METADATA = {
+  id: 'your-template-id', // MUST match folder name in report-templates/
+  name: 'Your Template Name', // Display name in UI
+  description: 'Brief description of this template', // Short description
+  hasInitConfig: true,
+};
 
 // ============================================================================
 // TARGET FILES
@@ -90,31 +107,31 @@ export const INITIAL_REPORT_STATE: ReportInitializationState = {
 
 export const REPORT_QUESTIONS = [
   {
-    key: 'report_title',
+    key: 'report_title', // Field key in required_fields or sections
     question: 'What is the title of the report?',
-    topic: 'Report Title',
-    category: 'required_fields' as const,
+    topic: 'Report Title', // Short topic label for UI
+    category: 'required_fields', // 'required_fields', 'sections', or 'other'
   },
   {
     key: 'report_author',
     question: 'Who is the author of this report?',
     topic: 'Author',
-    category: 'required_fields' as const,
+    category: 'required_fields',
   },
   {
     key: 'report_date',
     question: 'What is the date of this report?',
     topic: 'Date',
-    category: 'required_fields' as const,
+    category: 'required_fields',
   },
   {
     key: 'introduction',
     question: 'Provide an introduction for the report',
     topic: 'Introduction',
-    category: 'sections' as const,
+    category: 'sections',
   },
   // ...
-];
+] as const;
 
 // ============================================================================
 // FIELD DEFAULTS (placeholders for templates)

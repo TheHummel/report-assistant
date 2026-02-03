@@ -47,6 +47,7 @@ export function useChatStream() {
       reportInitState: any,
       projectFiles: ProjectFileContextPayload[],
       projectId: string,
+      templateId?: string | null,
       userId?: string
     ) => {
       // Cancel existing stream
@@ -75,6 +76,7 @@ export function useChatStream() {
           projectFiles,
           projectId,
           userId,
+          templateId,
         }),
         signal: controller.signal,
       });

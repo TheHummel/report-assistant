@@ -5,19 +5,27 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { TablesInsert } from '@/database.types';
 import { z } from 'zod';
-import { getReportTemplateFiles } from '@/data/report-template';
+import {
+  getTemplateFiles,
+  getTemplateById,
+  EMPTY_PROJECT_FILE,
+} from '@/lib/templates';
 
 const CreateProject = z.object({
   title: z.string().min(1, 'Project title is required').trim(),
+  templateId: z.string().nullable().optional(),
 });
 
-type State = {
+type CreateProjectResult = {
   projectId: string | null;
   message?: string | null;
   success?: boolean;
 };
 
-export async function createProject(title: string) {
+export async function createProject(
+  title: string,
+  templateId?: string | null
+): Promise<CreateProjectResult> {
   try {
     const supabase = await createClient();
 
@@ -32,17 +40,29 @@ export async function createProject(title: string) {
 
     const validatedFields = CreateProject.safeParse({
       title,
+      templateId,
     });
 
     if (!validatedFields.success) {
       throw new Error(validatedFields.error.errors[0].message);
     }
 
-    const { title: validatedTitle } = validatedFields.data;
+    const { title: validatedTitle, templateId: validatedTemplateId } =
+      validatedFields.data;
 
+    // verify template exists if provided
+    if (validatedTemplateId) {
+      const template = getTemplateById(validatedTemplateId);
+      if (!template) {
+        throw new Error(`Template not found: ${validatedTemplateId}`);
+      }
+    }
+
+    // create project record
     const projectData: TablesInsert<'projects'> = {
       title: validatedTitle,
       user_id: user.id,
+      template_id: validatedTemplateId || null,
     };
 
     const { data, error } = await (supabase.from('projects') as any)
@@ -55,64 +75,31 @@ export async function createProject(title: string) {
       throw new Error('Failed to create project');
     }
 
-    // get template files for the radiation test report
-    const templateDir = 'public/radiation-test-report-template-master';
-    const templateFiles = await getReportTemplateFiles(templateDir);
+    // Get files to upload
+    if (validatedTemplateId) {
+      // Use template files
+      const templateFiles = await getTemplateFiles(validatedTemplateId);
 
-    // upload files to storage
-    for (const templateFile of templateFiles) {
-      const filePath = `projects/${data.id}/${templateFile.path}`;
-
-      const fileContent = templateFile.isBinary
-        ? Buffer.from(templateFile.content, 'base64')
-        : templateFile.content;
-
-      const { error: storageError } = await supabase.storage
-        .from('octree')
-        .upload(filePath, fileContent, {
-          contentType: templateFile.contentType,
-          upsert: false,
-        });
-
-      if (storageError) {
-        console.error(
-          `Error uploading file ${templateFile.path} to storage:`,
-          storageError
-        );
-        throw new Error(
-          `Failed to upload file ${templateFile.path} to storage`
+      for (const templateFile of templateFiles) {
+        await uploadFileToProject(
+          supabase,
+          data.id,
+          templateFile.path,
+          templateFile.content,
+          templateFile.contentType,
+          templateFile.isBinary
         );
       }
-
-      const { data: urlData } = supabase.storage
-        .from('octree')
-        .getPublicUrl(filePath);
-
-      const fileSize = templateFile.isBinary
-        ? Buffer.from(templateFile.content, 'base64').length
-        : templateFile.content.length;
-
-      const fileToInsert: TablesInsert<'files'> = {
-        project_id: data.id,
-        name: templateFile.path,
-        type: templateFile.contentType,
-        size: fileSize,
-        url: urlData.publicUrl,
-      };
-
-      const { error: fileError } = await (supabase.from('files') as any).insert(
-        fileToInsert
+    } else {
+      // Create empty project with single main.tex
+      await uploadFileToProject(
+        supabase,
+        data.id,
+        EMPTY_PROJECT_FILE.name,
+        EMPTY_PROJECT_FILE.content,
+        EMPTY_PROJECT_FILE.contentType,
+        false
       );
-
-      if (fileError) {
-        console.error(
-          `Error creating file record for ${templateFile.path}:`,
-          fileError
-        );
-        throw new Error(
-          `Failed to create file record for ${templateFile.path}`
-        );
-      }
     }
 
     revalidatePath('/');
@@ -128,6 +115,57 @@ export async function createProject(title: string) {
       projectId: null,
       message:
         error instanceof Error ? error.message : 'Failed to create project',
+      success: false,
     };
+  }
+}
+
+async function uploadFileToProject(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  projectId: string,
+  fileName: string,
+  content: string,
+  contentType: string,
+  isBinary: boolean
+): Promise<void> {
+  const filePath = `projects/${projectId}/${fileName}`;
+
+  const fileContent = isBinary ? Buffer.from(content, 'base64') : content;
+
+  const { error: storageError } = await supabase.storage
+    .from('octree')
+    .upload(filePath, fileContent, {
+      contentType,
+      upsert: false,
+    });
+
+  if (storageError) {
+    console.error(`Error uploading file ${fileName} to storage:`, storageError);
+    throw new Error(`Failed to upload file ${fileName} to storage`);
+  }
+
+  const { data: urlData } = supabase.storage
+    .from('octree')
+    .getPublicUrl(filePath);
+
+  const fileSize = isBinary
+    ? Buffer.from(content, 'base64').length
+    : content.length;
+
+  const fileToInsert: TablesInsert<'files'> = {
+    project_id: projectId,
+    name: fileName,
+    type: contentType,
+    size: fileSize,
+    url: urlData.publicUrl,
+  };
+
+  const { error: fileError } = await (supabase.from('files') as any).insert(
+    fileToInsert
+  );
+
+  if (fileError) {
+    console.error(`Error creating file record for ${fileName}:`, fileError);
+    throw new Error(`Failed to create file record for ${fileName}`);
   }
 }

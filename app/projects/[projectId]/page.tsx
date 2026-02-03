@@ -38,6 +38,7 @@ import { ImageViewer } from '@/components/image-viewer';
 import { SimplePDFViewer } from '@/components/simple-pdf-viewer';
 import { ImageUploadModal } from '@/components/editor/image-upload-modal';
 import { useImageUpload } from '@/hooks/use-image-upload';
+import { checkTemplateHasInitConfig } from '@/actions/check-template-init-config';
 import { getSubsectionFiles } from '@/lib/utils/latex-sections';
 
 export default function ProjectPage() {
@@ -84,13 +85,29 @@ export default function ProjectPage() {
   const [hasCompiledOnMount, setHasCompiledOnMount] = useState(false);
   const [imageUploadOpen, setImageUploadOpen] = useState(false);
   const [initializationMode, setInitializationMode] = useState(false);
+  const [hasInitConfig, setHasInitConfig] = useState(false);
+
+  // check for init config
+  useEffect(() => {
+    async function checkInitConfig() {
+      if (projectData?.template_id) {
+        const hasConfig = await checkTemplateHasInitConfig(
+          projectData.template_id
+        );
+        setHasInitConfig(hasConfig);
+      } else {
+        setHasInitConfig(false);
+      }
+    }
+    checkInitConfig();
+  }, [projectData?.template_id]);
 
   // report-initialization state
   const {
     state: reportInitState,
     updateRequiredField,
     updateSection,
-  } = useReportInitialization(projectId);
+  } = useReportInitialization(projectId, projectData?.template_id);
 
   // cancel any pending auto-save when switching files
   useEffect(() => {
@@ -285,6 +302,7 @@ export default function ProjectPage() {
         isSaving={isSaving}
         lastSaved={lastSaved}
         hasPdfData={!!pdfData}
+        showInitializeWithAI={hasInitConfig}
       />
 
       <ResizablePanelGroup
@@ -414,6 +432,7 @@ export default function ProjectPage() {
         reportInitState={reportInitState}
         onUpdateReportField={handleUpdateReportField}
         projectId={projectId}
+        templateId={projectData?.template_id}
       />
 
       <ImageUploadModal

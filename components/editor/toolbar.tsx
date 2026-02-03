@@ -30,6 +30,7 @@ interface EditorToolbarProps {
   isSaving: boolean;
   lastSaved: Date | null;
   hasPdfData?: boolean;
+  showInitializationOption?: boolean;
 }
 
 export function EditorToolbar({
@@ -44,6 +45,7 @@ export function EditorToolbar({
   isSaving,
   lastSaved,
   hasPdfData = false,
+  showInitializationOption = true,
 }: EditorToolbarProps) {
   const [isMac, setIsMac] = useState(true);
 
@@ -75,26 +77,28 @@ export function EditorToolbar({
             </ButtonGroupItem>
           </ButtonGroup>
 
-          <Button
-            variant="default"
-            size="sm"
-            onClick={onOpenReportInitialization}
-            className="h-8 gap-1.5 border-slate-300 bg-gradient-to-b from-primary-light to-primary px-3 text-white hover:bg-gradient-to-b hover:from-primary-light/90 hover:to-primary/90"
-            title="Initialize with AI (⌘B)"
-          >
-            <WandSparkles className="h-3.5 w-3.5" />
-            <span className="font-medium">Initialize with AI</span>
-          </Button>
+          {showInitializationOption && (
+            <Button
+              variant="default"
+              size="sm"
+              onClick={onOpenReportInitialization}
+              className="h-8 gap-1.5 border-slate-300 bg-gradient-to-b from-primary-light to-primary px-3 text-white hover:bg-gradient-to-b hover:from-primary-light/90 hover:to-primary/90"
+              title="Initialize with AI (⌘B)"
+            >
+              <WandSparkles className="h-3.5 w-3.5" />
+              <span className="font-medium">Initialize with AI</span>
+            </Button>
+          )}
 
           <Button
             variant="default"
             size="sm"
             onClick={onOpenImageUpload}
             className="h-8 gap-1.5 border-slate-300 bg-gradient-to-b from-pink-500 to-pink-600 px-3 text-white hover:bg-gradient-to-b hover:from-pink-600/90 hover:to-pink-700/90"
-            title="Upload Image (⌘U)"
+            title="Add Image (⌘U)"
           >
             <ImagePlus className="h-3.5 w-3.5" />
-            <span className="font-medium">Upload Image</span>
+            <span className="font-medium">Add Image</span>
           </Button>
         </div>
 

@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { MONTHLY_EDIT_LIMIT } from '@/data/constants';
+import { MONTHLY_EDIT_LIMIT } from '@/lib/constants';
 
 interface EditLimitStatus {
   canEdit: boolean;

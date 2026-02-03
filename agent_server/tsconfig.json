@@ -8,7 +8,7 @@
     "rootDir": "..",
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../shared/*"]
+      "@report-templates/*": ["../report-templates/*"]
     },
     "strict": true,
     "esModuleInterop": true,

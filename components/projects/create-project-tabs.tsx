@@ -1,17 +1,27 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
-import { Upload } from 'lucide-react';
+import { Upload, FileText, LayoutTemplate } from 'lucide-react';
 import { DialogClose, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { importProject } from '@/lib/requests/project';
 import { useCreateProject } from '@/hooks/create-project-client';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { getTemplates } from '@/actions/get-templates';
+import type { ProjectTemplate } from '@/lib/templates';
 
 interface CreateProjectTabsProps {
   onSuccess: (projectId: string) => void;
@@ -25,11 +35,34 @@ export function CreateProjectTabs({
   const [activeTab, setActiveTab] = useState('create');
 
   const [title, setTitle] = useState('');
+  const [useTemplate, setUseTemplate] = useState(true);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null
+  );
+  const [availableTemplates, setAvailableTemplates] = useState<
+    ProjectTemplate[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { createProjectWithRefresh } = useCreateProject();
+
+  // Fetch available templates on mount
+  useEffect(() => {
+    async function loadTemplates() {
+      try {
+        const templates = await getTemplates();
+        setAvailableTemplates(templates);
+        if (templates.length === 1) {
+          setSelectedTemplateId(templates[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to load templates:', err);
+      }
+    }
+    loadTemplates();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +71,17 @@ export function CreateProjectTabs({
     setIsLoading(true);
     setError(null);
 
-    const result = await createProjectWithRefresh(title);
+    const templateId = useTemplate ? selectedTemplateId : null;
+    const result = await createProjectWithRefresh(title, templateId);
 
     if (result.success && result.projectId) {
-      toast.success('Project created successfully!');
+      const message =
+        useTemplate && selectedTemplateId
+          ? 'Project created from template!'
+          : 'Empty project created!';
+      toast.success(message);
       setTitle('');
+      setUseTemplate(false);
       onSuccess(result.projectId);
     } else {
       const errorMessage = result.message || 'Failed to create project';
@@ -119,6 +158,10 @@ export function CreateProjectTabs({
     }
   };
 
+  const hasTemplates = availableTemplates.length > 0;
+  const singleTemplate =
+    availableTemplates.length === 1 ? availableTemplates[0] : null;
+
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
       <TabsList className="grid w-full grid-cols-2">
@@ -137,8 +180,85 @@ export function CreateProjectTabs({
               placeholder="Enter project title"
               disabled={isLoading}
             />
-            {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
+
+          {/* Template selection */}
+          <div className="grid gap-3">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="use-template"
+                checked={useTemplate}
+                onCheckedChange={(checked) => {
+                  setUseTemplate(checked === true);
+                  if (checked && singleTemplate) {
+                    setSelectedTemplateId(singleTemplate.id);
+                  }
+                }}
+                disabled={!hasTemplates || isLoading}
+              />
+              <Label
+                htmlFor="use-template"
+                className={cn(
+                  'cursor-pointer',
+                  !hasTemplates && 'cursor-not-allowed text-muted-foreground'
+                )}
+              >
+                Create from template
+              </Label>
+            </div>
+
+            {useTemplate && hasTemplates && (
+              <div>
+                {singleTemplate ? (
+                  // single template: show as text
+                  <div className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm">
+                    <LayoutTemplate className="h-4 w-4 text-primary" />
+                    <div>
+                      <span className="font-medium">{singleTemplate.name}</span>
+                      <span className="ml-2 text-neutral-500">
+                        {singleTemplate.description}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  // multiple templates: dropdown
+                  <Select
+                    value={selectedTemplateId || undefined}
+                    onValueChange={setSelectedTemplateId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableTemplates.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          <div className="flex flex-col text-left">
+                            <span>{template.name}</span>
+                            <span className="text-xs text-neutral-500">
+                              {template.description}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
+            {!hasTemplates && (
+              <p className="text-xs text-neutral-500">No templates available</p>
+            )}
+
+            {!useTemplate && (
+              <p className="flex items-center gap-2 text-sm text-neutral-500">
+                <FileText className="h-3 w-3" />
+                Creates an empty project with a single main.tex file
+              </p>
+            )}
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <DialogFooter>
             <DialogClose asChild>
@@ -146,7 +266,14 @@ export function CreateProjectTabs({
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit" disabled={isLoading || !title.trim()}>
+            <Button
+              type="submit"
+              disabled={
+                isLoading ||
+                !title.trim() ||
+                (useTemplate && !selectedTemplateId)
+              }
+            >
               {isLoading ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>

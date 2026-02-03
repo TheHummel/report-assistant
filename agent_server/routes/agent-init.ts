@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { generateInitializationEdits } from '../lib/octra-agent/report-initialization';
 import { loadInitState, saveInitState } from '../lib/init-state-store';
-import { INIT_TARGET_FILES } from '@shared/report-init-config';
+import { getTemplateTargetFiles } from '../lib/template-config';
 import type { LineEdit } from '../lib/octra-agent/line-edits';
 
 export function createAgentInitRouter(): Router {
@@ -14,7 +14,7 @@ export function createAgentInitRouter(): Router {
 
   router.post('/init', async (req: Request, res: Response) => {
     try {
-      const { reportInitState, projectFiles, projectId, userId } =
+      const { reportInitState, projectFiles, projectId, userId, templateId } =
         req.body || {};
 
       if (!reportInitState || typeof reportInitState !== 'object') {
@@ -29,11 +29,25 @@ export function createAgentInitRouter(): Router {
         });
       }
 
+      if (!templateId) {
+        return res.status(400).json({
+          error: 'templateId is required',
+        });
+      }
+
       const stateKey = projectId || userId || 'default';
 
-      console.log('[Init] Generating edits for:', stateKey);
+      console.log(
+        '[Init] Generating edits for:',
+        stateKey,
+        'template:',
+        templateId
+      );
 
-      // find all target files from INIT_TARGET_FILES
+      // load template target files dynamically
+      const INIT_TARGET_FILES = await getTemplateTargetFiles(templateId);
+
+      // find all target files from template config
       const targetFiles = projectFiles.filter((file) =>
         INIT_TARGET_FILES.some(
           (targetPath) =>
@@ -70,10 +84,11 @@ export function createAgentInitRouter(): Router {
       const allEdits: LineEdit[] = [];
 
       for (const targetFile of targetFiles) {
-        const edits = generateInitializationEdits(
+        const edits = await generateInitializationEdits(
           reportInitState,
           targetFile.content,
-          targetFile.path
+          targetFile.path,
+          templateId
         );
 
         edits.forEach((edit) => {
