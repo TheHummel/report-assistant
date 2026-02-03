@@ -56,7 +56,7 @@ export function AppSidebar({ userName }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="offcanvas">
-      <SidebarHeader className="flex-row items-center justify-between border-b border-gray-200">
+      <SidebarHeader className="h-[48px] flex-row items-center justify-between border-b border-gray-200">
         <p className="px-3 text-sm font-medium">Files</p>
         <button
           onClick={toggleSidebar}

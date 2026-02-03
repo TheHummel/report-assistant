@@ -648,28 +648,11 @@ export function Chat({
   };
 
   if (!isOpen) {
-    return (
-      <div
-        className="fixed bottom-4 right-4 z-20 flex cursor-pointer flex-col items-end space-y-2"
-        onClick={() => setIsOpen(true)}
-      >
-        <div className="mb-2 rounded-md border border-neutral-300 bg-white/80 px-3 py-1.5 text-sm text-foreground shadow-sm backdrop-blur-sm">
-          Press{' '}
-          <kbd className="rounded-sm bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
-            {isMac ? '⌘' : 'Ctrl'}
-          </kbd>
-          {' + '}
-          <kbd className="rounded-sm bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
-            B
-          </kbd>{' '}
-          to chat
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-20 h-[610px] w-96 rounded-md border border-blue-100 bg-white shadow-2xl transition-all duration-200">
+    <div className="flex h-full w-96 flex-shrink-0 flex-col border-l border-blue-100 bg-white shadow-lg">
       <div className="flex items-center justify-between border-b border-blue-100/50 px-4 py-2">
         <div className="flex items-center space-x-3">
           <Image

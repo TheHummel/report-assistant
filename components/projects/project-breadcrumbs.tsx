@@ -12,6 +12,9 @@ import {
 } from '@/components/ui/breadcrumb';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
+import Link from 'next/link';
+import { House } from 'lucide-react';
+import { Button } from '../ui/button';
 
 interface ProjectBreadcrumbsProps {
   projectTitle: string;
@@ -56,7 +59,16 @@ export function ProjectBreadcrumbs({ projectTitle }: ProjectBreadcrumbsProps) {
     <Breadcrumb className="min-w-0 max-w-full">
       <BreadcrumbList className="flex-nowrap gap-1 text-sm">
         <BreadcrumbItem>
-          <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+          <Link href="/">
+            <Button
+              data-sidebar="trigger"
+              data-slot="sidebar-trigger"
+              variant="ghost"
+              size="icon"
+            >
+              <House />
+            </Button>
+          </Link>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem className="w-full">

@@ -20,6 +20,7 @@ import { ErrorState } from '@/components/editor/error-state';
 import PDFViewer from '@/components/pdf-viewer';
 import { Chat } from '@/components/chat';
 import { CompilationError } from '@/components/latex/compilation-error';
+import { ProjectHeader } from '@/components/projects/project-header';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -40,6 +41,7 @@ import { ImageUploadModal } from '@/components/editor/image-upload-modal';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { checkTemplateHasInitConfig } from '@/actions/check-template-init-config';
 import { getSubsectionFiles } from '@/lib/utils/latex-sections';
+import Image from 'next/image';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -286,154 +288,179 @@ export default function ProjectPage() {
   const isText = selectedFile ? isTextFile(selectedFile.name) : false;
 
   return (
-    <div className="flex h-[calc(100vh-45px)] flex-col bg-slate-100">
-      <EditorToolbar
-        onTextFormat={handleTextFormat}
-        onCompile={handleCompile}
-        onExportPDF={handleExportPDF}
-        onExportZIP={handleExportZIP}
-        onOpenReportInitialization={() => {
-          setInitializationMode(true);
-          setChatOpen(true);
-        }}
-        onOpenImageUpload={() => setImageUploadOpen(true)}
-        compiling={compiling}
-        exporting={exporting}
-        isSaving={isSaving}
-        lastSaved={lastSaved}
-        hasPdfData={!!pdfData}
-        showInitializationOption={hasInitConfig}
-      />
+    <div className="flex h-screen flex-col overflow-hidden">
+      <ProjectHeader projectTitle={projectData?.title || 'Project'} />
+      <div className="flex flex-1 overflow-hidden bg-slate-100">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <EditorToolbar
+            onTextFormat={handleTextFormat}
+            onCompile={handleCompile}
+            onExportPDF={handleExportPDF}
+            onExportZIP={handleExportZIP}
+            onOpenReportInitialization={() => {
+              setInitializationMode(true);
+              setChatOpen(true);
+            }}
+            onOpenImageUpload={() => setImageUploadOpen(true)}
+            compiling={compiling}
+            exporting={exporting}
+            isSaving={isSaving}
+            lastSaved={lastSaved}
+            hasPdfData={!!pdfData}
+            showInitializationOption={hasInitConfig}
+          />
 
-      <ResizablePanelGroup
-        direction="horizontal"
-        className="flex min-h-0 flex-1"
-      >
-        <ResizablePanel defaultSize={50} minSize={30}>
-          <div className="relative h-full">
-            <div className="h-full overflow-hidden">
-              {isImage && selectedFile ? (
-                <ImageViewer
-                  projectId={projectId}
-                  fileName={selectedFile.name}
-                />
-              ) : isPDF && selectedFile ? (
-                <SimplePDFViewer
-                  projectId={projectId}
-                  fileName={selectedFile.name}
-                />
-              ) : isText && selectedFile ? (
-                <>
-                  <MonacoEditor
-                    content={content}
-                    onChange={handleEditorChange}
-                    onMount={handleEditorMount}
-                    className="h-full"
-                  />
-                  <SelectionButton
-                    show={showButton}
-                    position={buttonPos}
-                    onCopy={() => handleCopy()}
-                  />
-                  <SuggestionActions
-                    suggestions={editSuggestions}
-                    onAccept={handleAcceptEdit}
-                    onReject={handleRejectEdit}
-                  />
-                </>
-              ) : selectedFile ? (
-                <div className="flex h-full items-center justify-center bg-slate-50">
-                  <div className="text-center">
-                    <div className="mb-2 text-4xl">📄</div>
-                    <h3 className="mb-1 text-lg font-medium text-slate-900">
-                      Unsupported File Type
-                    </h3>
-                    <p className="text-sm text-slate-600">
-                      Cannot preview or edit {selectedFile.name}
-                    </p>
-                    <p className="mt-2 text-xs text-slate-500">
-                      Supported: .tex, .bib, .md, .txt, .json, images, and PDFs
-                    </p>
-                  </div>
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="flex min-h-0 flex-1"
+          >
+            <ResizablePanel defaultSize={50} minSize={30}>
+              <div className="relative h-full">
+                <div className="h-full overflow-hidden">
+                  {isImage && selectedFile ? (
+                    <ImageViewer
+                      projectId={projectId}
+                      fileName={selectedFile.name}
+                    />
+                  ) : isPDF && selectedFile ? (
+                    <SimplePDFViewer
+                      projectId={projectId}
+                      fileName={selectedFile.name}
+                    />
+                  ) : isText && selectedFile ? (
+                    <>
+                      <MonacoEditor
+                        content={content}
+                        onChange={handleEditorChange}
+                        onMount={handleEditorMount}
+                        className="h-full"
+                      />
+                      <SelectionButton
+                        show={showButton}
+                        position={buttonPos}
+                        onCopy={() => handleCopy()}
+                      />
+                      <SuggestionActions
+                        suggestions={editSuggestions}
+                        onAccept={handleAcceptEdit}
+                        onReject={handleRejectEdit}
+                      />
+                    </>
+                  ) : selectedFile ? (
+                    <div className="flex h-full items-center justify-center bg-slate-50">
+                      <div className="text-center">
+                        <div className="mb-2 text-4xl">📄</div>
+                        <h3 className="mb-1 text-lg font-medium text-slate-900">
+                          Unsupported File Type
+                        </h3>
+                        <p className="text-sm text-slate-600">
+                          Cannot preview or edit {selectedFile.name}
+                        </p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Supported: .tex, .bib, .md, .txt, .json, images, and
+                          PDFs
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          </div>
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={50} minSize={40}>
-          <div className="h-full overflow-hidden border-l border-slate-200">
-            {compilationError && !pdfData ? (
-              <div className="flex h-full items-start justify-center overflow-auto p-4">
-                <CompilationError
-                  error={compilationError}
-                  variant="overlay"
-                  onRetry={handleCompile}
-                  onDismiss={() => setCompilationError(null)}
-                  onFixWithAI={() => {
-                    if (!compilationError) return;
-                    const errorContext =
-                      formatCompilationErrorForAI(compilationError);
-                    setTextFromEditor(errorContext);
-                    setChatOpen(true);
-                    setAutoSendMessage('Fix this error');
-                    setCompilationError(null);
-                  }}
-                  className="w-full max-w-4xl"
-                />
               </div>
-            ) : (
-              <PDFViewer
-                pdfData={pdfData}
-                isLoading={compiling}
-                compilationError={compilationError}
-                onRetryCompile={handleCompile}
-                onDismissError={() => setCompilationError(null)}
-                onFixWithAI={
-                  compilationError
-                    ? () => {
+            </ResizablePanel>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={50} minSize={40}>
+              <div className="h-full overflow-hidden border-l border-slate-200">
+                {compilationError && !pdfData ? (
+                  <div className="flex h-full items-start justify-center overflow-auto p-4">
+                    <CompilationError
+                      error={compilationError}
+                      variant="overlay"
+                      onRetry={handleCompile}
+                      onDismiss={() => setCompilationError(null)}
+                      onFixWithAI={() => {
+                        if (!compilationError) return;
                         const errorContext =
                           formatCompilationErrorForAI(compilationError);
                         setTextFromEditor(errorContext);
                         setChatOpen(true);
                         setAutoSendMessage('Fix this error');
                         setCompilationError(null);
-                      }
-                    : undefined
-                }
-              />
-            )}
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+                      }}
+                      className="w-full max-w-4xl"
+                    />
+                  </div>
+                ) : (
+                  <PDFViewer
+                    pdfData={pdfData}
+                    isLoading={compiling}
+                    compilationError={compilationError}
+                    onRetryCompile={handleCompile}
+                    onDismissError={() => setCompilationError(null)}
+                    onFixWithAI={
+                      compilationError
+                        ? () => {
+                            const errorContext =
+                              formatCompilationErrorForAI(compilationError);
+                            setTextFromEditor(errorContext);
+                            setChatOpen(true);
+                            setAutoSendMessage('Fix this error');
+                            setCompilationError(null);
+                          }
+                        : undefined
+                    }
+                  />
+                )}
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
 
-      <Chat
-        isOpen={chatOpen}
-        setIsOpen={(open) => {
-          setChatOpen(open);
-          if (!open) {
-            // reset initialization mode when chat is closed
-            setInitializationMode(false);
-          }
-        }}
-        onEditSuggestion={handleSuggestionFromChat}
-        onAcceptAllEdits={handleAcceptAllEdits}
-        onFinalizeEdits={finalizeEdits}
-        pendingEditCount={totalPendingCount}
-        fileContent={content}
-        textFromEditor={textFromEditor}
-        setTextFromEditor={setTextFromEditor}
-        selectionRange={selectionRange}
-        projectFiles={projectFileContext}
-        currentFilePath={selectedFile?.name ?? null}
-        autoSendMessage={autoSendMessage}
-        setAutoSendMessage={setAutoSendMessage}
-        initializationMode={initializationMode}
-        reportInitState={reportInitState}
-        onUpdateReportField={handleUpdateReportField}
-        projectId={projectId}
-        templateId={projectData?.template_id}
-      />
+        {chatOpen && (
+          <Chat
+            isOpen={chatOpen}
+            setIsOpen={(open) => {
+              setChatOpen(open);
+              if (!open) {
+                // reset initialization mode when chat is closed
+                setInitializationMode(false);
+              }
+            }}
+            onEditSuggestion={handleSuggestionFromChat}
+            onAcceptAllEdits={handleAcceptAllEdits}
+            onFinalizeEdits={finalizeEdits}
+            pendingEditCount={totalPendingCount}
+            fileContent={content}
+            textFromEditor={textFromEditor}
+            setTextFromEditor={setTextFromEditor}
+            selectionRange={selectionRange}
+            projectFiles={projectFileContext}
+            currentFilePath={selectedFile?.name ?? null}
+            autoSendMessage={autoSendMessage}
+            setAutoSendMessage={setAutoSendMessage}
+            initializationMode={initializationMode}
+            reportInitState={reportInitState}
+            onUpdateReportField={handleUpdateReportField}
+            projectId={projectId}
+            templateId={projectData?.template_id}
+          />
+        )}
+      </div>
+
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 z-50 transition-all hover:scale-110 hover:opacity-80"
+          title="Open Report Assistant"
+        >
+          <Image
+            src="/report-assistant-icon.jpg"
+            alt="Report Assistant"
+            width={56}
+            height={56}
+            className="rounded-md shadow-lg"
+            unoptimized
+          />
+        </button>
+      )}
 
       <ImageUploadModal
         open={imageUploadOpen}
