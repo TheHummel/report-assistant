@@ -100,7 +100,7 @@
 
 @layer components {
   /* Style for the original text to be replaced (Red Strikethrough) */
-  .octra-suggestion-deleted {
+  .lars-suggestion-deleted {
     color: #f43f5e !important;
     text-decoration: line-through !important;
     /* Optional: Add slight background if needed */
@@ -108,7 +108,7 @@
   }
 
   /* Style for the new suggested text (Bold Green) */
-  .octra-suggestion-added {
+  .lars-suggestion-added {
     color: #22c55e !important;
     font-weight: bold !important;
     /* Optional: Add light green background */
@@ -120,7 +120,7 @@
   }
 
   /* Style for the glyph margin indicator (Optional, but recommended) */
-  .octra-suggestion-glyph {
+  .lars-suggestion-glyph {
     background-color: #3b82f6 !important; /* Blue */
     width: 4px !important;
     margin-left: 2px !important;
@@ -130,26 +130,26 @@
 }
 
 /* Add these styles for Monaco Editor Diff Highlighting */
-.octra-suggestion-deleted {
+.lars-suggestion-deleted {
   background-color: rgba(255, 0, 0, 0.15); /* Light red background */
   text-decoration: line-through; /* Strikethrough */
 }
 
-.octra-suggestion-added {
+.lars-suggestion-added {
   background-color: rgba(0, 255, 0, 0.15); /* Light green background */
   font-weight: 600; /* Slightly bolder */
   /* Ensure it doesn't inherit strikethrough if nested weirdly */
   text-decoration: none !important;
 }
 
-.octra-suggestion-glyph {
+.lars-suggestion-glyph {
   background-color: #007acc; /* Blue indicator color, adjust as needed */
   width: 4px !important; /* Adjust width as needed */
   margin-left: 2px !important; /* Adjust spacing */
 }
 
 /* Optional: Style for the 'after' widget's newline indicator */
-.octra-suggestion-added::after {
+.lars-suggestion-added::after {
   /* Style the '↵' character if needed, e.g., color */
   /* color: #somecolor; */
 }

@@ -3,7 +3,7 @@ import { EditSuggestion } from '@/types/edit';
 import { v4 as uuid } from 'uuid';
 import { convertImageToLatex } from '@/lib/image-to-latex';
 import { uploadImageToProject, dataUrlToFile } from '@/lib/requests/project';
-import { buildImageIntegrationPrompt } from '@/agent_server/lib/octra-agent/content-processing';
+import { buildImageIntegrationPrompt } from '@/agent_server/lib/lars-agent/content-processing';
 
 interface UseImageUploadProps {
   content: string;
@@ -85,7 +85,7 @@ export function useImageUpload({
         );
 
         // Step 5: send request to agent service
-        const response = await fetch('/api/octra-agent', {
+        const response = await fetch('/api/lars-agent', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

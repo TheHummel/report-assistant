@@ -55,7 +55,7 @@ async function handleCompileSuccess(
 
   // Check if we got a valid PDF
   if (pdfArrayBuffer.byteLength === 0) {
-    throw new Error('octree-compile returned empty response');
+    throw new Error('lars-compile returned empty response');
   }
 
   // Verify PDF magic number (%PDF)
@@ -87,7 +87,7 @@ async function handleCompileError(
 ): Promise<CompilerResponse> {
   const errorText = await response.text();
 
-  // Parse octree-compile error response (always JSON on error)
+  // Parse lars-compile error response (always JSON on error)
   let errorData;
   try {
     errorData = JSON.parse(errorText);
@@ -140,7 +140,7 @@ function handleCompileException(error: unknown): CompilerResponse {
     error: {
       error: 'LaTeX compilation failed',
       details: String(error),
-      suggestion: 'The octree-compile service may be temporarily unavailable',
+      suggestion: 'The lars-compile service may be temporarily unavailable',
     },
   };
 }

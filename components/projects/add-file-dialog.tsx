@@ -99,7 +99,7 @@ export function AddFileDialog({
       const fullPath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
       const mimeType = getContentTypeByFilename(fileName);
       const { error: uploadError } = await supabase.storage
-        .from('octree')
+        .from('lars')
         .upload(`projects/${projectId}/${fullPath}`, selectedFile, {
           cacheControl: '3600',
           upsert: false,
@@ -111,7 +111,7 @@ export function AddFileDialog({
       }
 
       const { data: storageFiles } = await supabase.storage
-        .from('octree')
+        .from('lars')
         .list(`projects/${projectId}`);
 
       const uploadedFile = storageFiles?.find((f) => f.name === fileName);
@@ -165,7 +165,7 @@ export function AddFileDialog({
       const blob = new Blob([content], { type: mimeType });
 
       const { error: uploadError } = await supabase.storage
-        .from('octree')
+        .from('lars')
         .upload(`projects/${projectId}/${fullPath}`, blob, {
           cacheControl: '3600',
           upsert: false,
@@ -177,7 +177,7 @@ export function AddFileDialog({
       }
 
       const { data: storageFiles } = await supabase.storage
-        .from('octree')
+        .from('lars')
         .list(`projects/${projectId}`);
 
       const createdFile = storageFiles?.find((f) => f.name === fileName);

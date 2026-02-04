@@ -1,13 +1,11 @@
 {
-  "name": "octra-agent-server",
+  "name": "lars-agent-server",
   "version": "1.0.0",
-  "description": "AI Agent service for Octree LaTeX Editor (supports CERN LiteLLM and Claude)",
+  "description": "AI Agent service for LARS (LaTeX Report Assistant) (supports CERN LiteLLM)",
   "main": "agent-service-cern-litellm.ts",
   "scripts": {
     "start": "tsx agent-service-cern-litellm.ts",
-    "start:claude": "tsx agent-service.ts",
     "dev": "tsx watch agent-service-cern-litellm.ts",
-    "dev:claude": "tsx watch agent-service.ts",
     "build": "tsc",
     "deploy": "bash deploy.sh"
   },
@@ -17,7 +15,7 @@
     "latex",
     "ai"
   ],
-  "author": "Octree AI",
+  "author": "Jannis Alsbach <jalsbach@cern.ch>",
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.5",

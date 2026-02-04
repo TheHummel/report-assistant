@@ -133,7 +133,7 @@ async function uploadFileToProject(
   const fileContent = isBinary ? Buffer.from(content, 'base64') : content;
 
   const { error: storageError } = await supabase.storage
-    .from('octree')
+    .from('lars')
     .upload(filePath, fileContent, {
       contentType,
       upsert: false,
@@ -145,7 +145,7 @@ async function uploadFileToProject(
   }
 
   const { data: urlData } = supabase.storage
-    .from('octree')
+    .from('lars')
     .getPublicUrl(filePath);
 
   const fileSize = isBinary

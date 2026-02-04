@@ -29,7 +29,7 @@ function parseHeaderList(value: string | undefined): string[] {
  * Resolve the host + protocol used for post-OAuth redirects.
  *
  * When the editor is launched from the Tools hub the request is proxied through
- * `tools.useoctree.com`, which populates `x-forwarded-host` with the Tools domain.
+ * `tools.yourdomain.com`, which populates `x-forwarded-host` with the Tools domain.
  * If we redirect to that forwarded host the browser stays on the Tools origin and
  * the Supabase session cookie never reaches the editor domain. By preferring whichever
  * header matches the origin host we land back on the editor origin and the session
@@ -47,7 +47,9 @@ export function resolveRedirectBase(
   allowList.add(fallbackHost);
 
   if (allowedHostsEnv) {
-    for (const host of allowedHostsEnv.split(',').map((value) => value.trim())) {
+    for (const host of allowedHostsEnv
+      .split(',')
+      .map((value) => value.trim())) {
       if (host) {
         allowList.add(host);
       }
@@ -70,9 +72,12 @@ export function resolveRedirectBase(
     }
   }
 
-  const candidates = [...hostHeaders, ...forwardedHosts, origin.host].filter(Boolean);
+  const candidates = [...hostHeaders, ...forwardedHosts, origin.host].filter(
+    Boolean
+  );
 
-  const host = candidates.find((candidate) => allowList.has(candidate)) ?? fallbackHost;
+  const host =
+    candidates.find((candidate) => allowList.has(candidate)) ?? fallbackHost;
 
   return new URL(`${protocol}://${host}`);
 }
@@ -83,6 +88,10 @@ export function buildRedirectUrl(
   nextPath: string,
   allowedHostsEnv = process.env.ALLOWED_REDIRECT_HOSTS
 ): string {
-  const baseUrl = resolveRedirectBase(headers, new URL(origin), allowedHostsEnv);
+  const baseUrl = resolveRedirectBase(
+    headers,
+    new URL(origin),
+    allowedHostsEnv
+  );
   return new URL(nextPath, baseUrl).toString();
 }

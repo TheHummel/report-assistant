@@ -1,5 +1,5 @@
 /**
- * Tool definitions for the Octra Agent SDK
+ * Tool definitions for the LARS Agent SDK
  * Defines the tools available to the AI agent for LaTeX document editing
  */
 
@@ -140,10 +140,10 @@ export function createProposeEditsTool(context: ToolContext) {
 }
 
 /**
- * Create all tools for the Octra Agent SDK
+ * Create all tools for the LARS Agent SDK
  * @param context - Tool context with all necessary data
  * @returns Array of configured tool instances
  */
-export function createOctraTools(context: ToolContext) {
+export function createLarsTools(context: ToolContext) {
   return [createGetContextTool(context), createProposeEditsTool(context)];
 }

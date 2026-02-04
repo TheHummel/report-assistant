@@ -395,7 +395,7 @@ export function Chat({
         }
       }
     } catch (err) {
-      console.error('Octra Agent API error:', err);
+      console.error('LARS Agent API error:', err);
       if ((err as any)?.name !== 'AbortError') {
         setError(err);
       } else {

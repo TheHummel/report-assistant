@@ -5,7 +5,7 @@ import { POST as compileRoute } from '@/app/api/compile-pdf/route';
 const baseTex = String.raw`\documentclass{article}
 \usepackage[utf8]{inputenc}
 \title{E2E Document}
-\author{Octra}
+\author{LARS}
 \date{\\today}
 \begin{document}
 \maketitle
@@ -69,11 +69,11 @@ function mockPdfResponse(): Response {
   });
 }
 
-describe('Octra Agent E2E (proxied SSE) -> compile', () => {
+describe('LARS Agent E2E (proxied SSE) -> compile', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     // Force route to use proxy branch and mock SSE
-    process.env.AGENT_SERVICE_URL = 'https://fake-octra-agent';
+    process.env.AGENT_SERVICE_URL = 'https://fake-lars-agent';
   });
 
   it('streams edits from agent, applies Accept All semantics, compiles', async () => {
@@ -107,7 +107,7 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
       }),
     }));
 
-    const { POST: octraRoute } = await import('@/app/api/octra-agent/route');
+    const { POST: larsRoute } = await import('@/app/api/lars-agent/route');
     // 1) Prepare a streamed SSE with propose_edits and edits payload
     const edits: LineEdit[] = [
       {
@@ -137,8 +137,8 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
       // Second call: compile route remote call
       .mockResolvedValueOnce(mockPdfResponse());
 
-    // 2) Call Octra agent route (proxied)
-    const octraReq = new Request('http://localhost/api/octra-agent', {
+    // 2) Call LARS agent route (proxied)
+    const larsReq = new Request('http://localhost/api/lars-agent', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -152,13 +152,13 @@ describe('Octra Agent E2E (proxied SSE) -> compile', () => {
       }),
     });
 
-    const octraRes = (await octraRoute(
-      octraReq as unknown as Request
+    const larsRes = (await larsRoute(
+      larsReq as unknown as Request
     )) as Response;
-    expect(octraRes.status).toBe(200);
+    expect(larsRes.status).toBe(200);
 
     // 3) Read back streamed events and extract edits
-    const reader = octraRes.body!.getReader();
+    const reader = larsRes.body!.getReader();
     const dec = new TextDecoder();
     let buf = '';
     const received: Array<{ event: string; data: any }> = [];

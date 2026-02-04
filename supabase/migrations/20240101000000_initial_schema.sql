@@ -1,4 +1,4 @@
--- Initial schema for Octree
+-- Initial schema for LARS (LaTeX Report Assistant)
 -- This creates all the base tables, RLS policies, and functions
 
 -- Enable necessary extensions
@@ -307,30 +307,30 @@ $$;
 -- STORAGE BUCKETS
 -- ============================================
 
--- Create storage bucket for project files (named 'octree' as expected by the app)
+-- Create storage bucket for project files (named 'lars' as expected by the app)
 insert into storage.buckets (id, name, public)
-values ('octree', 'octree', true)
+values ('lars', 'lars', true)
 on conflict (id) do nothing;
 
--- Storage policies for octree bucket
+-- Storage policies for lars bucket
 -- Path format: projects/{project_id}/filename
 -- For simplicity in local development, allow authenticated users full access
 
 create policy "Authenticated users can view files"
   on storage.objects for select
-  using (bucket_id = 'octree' and auth.role() = 'authenticated');
+  using (bucket_id = 'lars' and auth.role() = 'authenticated');
 
 create policy "Authenticated users can upload files"
   on storage.objects for insert
-  with check (bucket_id = 'octree' and auth.role() = 'authenticated');
+  with check (bucket_id = 'lars' and auth.role() = 'authenticated');
 
 create policy "Authenticated users can update files"
   on storage.objects for update
-  using (bucket_id = 'octree' and auth.role() = 'authenticated');
+  using (bucket_id = 'lars' and auth.role() = 'authenticated');
 
 create policy "Authenticated users can delete files"
   on storage.objects for delete
-  using (bucket_id = 'octree' and auth.role() = 'authenticated');
+  using (bucket_id = 'lars' and auth.role() = 'authenticated');
 
 -- ============================================
 -- TRIGGERS

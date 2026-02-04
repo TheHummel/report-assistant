@@ -1,4 +1,4 @@
-import { LineEdit } from '@/lib/octra-agent/line-edits';
+import { LineEdit } from '@/lib/lars-agent/line-edits';
 
 // EditSuggestion format using line-based edits
 export interface EditSuggestion extends LineEdit {

@@ -1,7 +1,7 @@
 /**
- * Octra Agent - Modular LaTeX AI Assistant
+ * LARS Agent - Modular LaTeX AI Assistant
  *
- * This module provides a clean, modular architecture for the Octra AI agent
+ * This module provides a clean, modular architecture for the LARS AI agent
  * that handles LaTeX document editing with line-based operations.
  */
 

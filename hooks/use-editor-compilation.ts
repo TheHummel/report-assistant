@@ -66,7 +66,7 @@ export function useEditorCompilation({
           : `projects/${project.id}`;
 
         const { data: items, error } = await supabase.storage
-          .from('octree')
+          .from('lars')
           .list(listPath);
 
         if (error || !items) return [];
@@ -100,7 +100,7 @@ export function useEditorCompilation({
           try {
             const { data: fileBlob, error: downloadError } =
               await supabase.storage
-                .from('octree')
+                .from('lars')
                 .download(`projects/${project.id}/${file.name}`);
 
             if (downloadError || !fileBlob) {

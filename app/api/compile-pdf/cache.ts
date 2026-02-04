@@ -6,12 +6,12 @@ const MAX_CACHE_ENTRIES = Number(process.env.COMPILE_CACHE_MAX_ENTRIES ?? 32);
 
 // Global cache instance
 const globalForCompileCache = globalThis as unknown as {
-  __octreeCompileCache__?: Map<string, CompileCacheEntry>;
+  __larsCompileCache__?: Map<string, CompileCacheEntry>;
 };
 
 const compileCache =
-  globalForCompileCache.__octreeCompileCache__ ??
-  (globalForCompileCache.__octreeCompileCache__ = new Map<string, CompileCacheEntry>());
+  globalForCompileCache.__larsCompileCache__ ??
+  (globalForCompileCache.__larsCompileCache__ = new Map<string, CompileCacheEntry>());
 
 /**
  * Builds a cache key from the compile request

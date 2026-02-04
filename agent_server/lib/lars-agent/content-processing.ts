@@ -130,7 +130,7 @@ ${imageFiles.map((f) => `  - ${f.path}`).join('\n')}`
       }`
     : '';
 
-  return `You are Octra, a LaTeX editing assistant. You edit LaTeX documents by calling the 'propose_edits' tool.
+  return `You are LARS (LaTeX Report Assistant), a LaTeX editing assistant. You edit LaTeX documents by calling the 'propose_edits' tool.
 
 ABSOLUTE RULE: For ANY editing request, you MUST:
 1. Immediately call the 'propose_edits' tool with the edit

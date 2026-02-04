@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
-import { LineEdit } from '@/lib/octra-agent/line-edits';
+import { LineEdit } from '@/lib/lars-agent/line-edits';
 import { EditSuggestion } from '@/types/edit';
 
 export type ProposalState = 'pending' | 'success' | 'error';

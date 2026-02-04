@@ -1,4 +1,4 @@
-# AI LaTeX Editor
+# LARS - LaTeX Report Assistant
 
 An AI-powered collaborative LaTeX editor with real-time PDF compilation and intelligent editing suggestions.
 
@@ -20,8 +20,8 @@ Before running this project locally, ensure you have the following installed:
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/octree-labs/octree.git
-cd octree
+git clone <your-repository-url>
+cd report-assistant
 ```
 
 ### 2. Install Dependencies

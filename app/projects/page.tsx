@@ -45,7 +45,7 @@ export default async function Dashboard() {
                     dmSans.className
                   )}
                 >
-                  Octree
+                  Report Assistant
                 </span>
               </Link>
               <Link

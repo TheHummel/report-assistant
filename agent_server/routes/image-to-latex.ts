@@ -7,7 +7,7 @@ import { Router, Request, Response } from 'express';
 import {
   buildImageDescriptionPrompt,
   buildImageDescriptionUserPrompt,
-} from '../lib/octra-agent/content-processing';
+} from '../lib/lars-agent/content-processing';
 
 interface ImageToLatexConfig {
   cernLiteLLMUrl: string;

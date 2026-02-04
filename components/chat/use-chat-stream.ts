@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { LineEdit } from '@/lib/octra-agent/line-edits';
+import { LineEdit } from '@/lib/lars-agent/line-edits';
 
 interface ChatMessage {
   id: string;
@@ -68,7 +68,7 @@ export function useChatStream() {
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      const res = await fetch('/api/octra-agent/init', {
+      const res = await fetch('/api/lars-agent/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -124,7 +124,7 @@ export function useChatStream() {
           return !isImage && !isBinary;
         }) || [];
 
-      const res = await fetch('/api/octra-agent', {
+      const res = await fetch('/api/lars-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

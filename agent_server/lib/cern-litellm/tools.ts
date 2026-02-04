@@ -9,8 +9,8 @@ import type {
   ToolResult,
   ProjectFileContext,
 } from './types';
-import { LineEdit, validateLineEdits } from '../octra-agent/line-edits';
-import { IntentResult } from '../octra-agent/intent-inference';
+import { LineEdit, validateLineEdits } from '../lars-agent/line-edits';
+import { IntentResult } from '../lars-agent/intent-inference';
 
 // ============================================================================
 // Tool Definitions

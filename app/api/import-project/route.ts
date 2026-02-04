@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         }
 
         const { error: uploadError } = await supabase.storage
-          .from('octree')
+          .from('lars')
           .upload(`projects/${project.id}/${file.name}`, blob, {
             cacheControl: '3600',
             upsert: false,

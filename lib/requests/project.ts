@@ -34,7 +34,7 @@ async function listAllFiles(
     : `projects/${projectId}`;
 
   const { data: items, error } = await supabase.storage
-    .from('octree')
+    .from('lars')
     .list(listPath, {
       sortBy: { column: 'created_at', order: 'desc' },
     });
@@ -84,7 +84,7 @@ export const getProjectFiles = async (
       try {
         const cacheBuster = `?t=${Date.now()}`;
         const { data: fileBlob, error: downloadError } = await supabase.storage
-          .from('octree')
+          .from('lars')
           .download(`projects/${projectId}/${storageFile.name}${cacheBuster}`);
 
         if (downloadError || !fileBlob) {
@@ -213,7 +213,7 @@ export const renameFile = async (
   }
 
   const { error: moveError } = await supabase.storage
-    .from('octree')
+    .from('lars')
     .move(
       `projects/${projectId}/${currentName}`,
       `projects/${projectId}/${newName}`
@@ -240,7 +240,7 @@ export const deleteFile = async (
   }
 
   const { error: deleteError } = await supabase.storage
-    .from('octree')
+    .from('lars')
     .remove([`projects/${projectId}/${fileName}`]);
 
   if (deleteError) {
@@ -266,7 +266,7 @@ export const createFolder = async (
   const blob = new Blob([''], { type: 'text/plain' });
 
   const { error: uploadError } = await supabase.storage
-    .from('octree')
+    .from('lars')
     .upload(`projects/${projectId}/${gitkeepPath}`, blob, {
       cacheControl: '3600',
       upsert: false,
@@ -285,7 +285,7 @@ async function listFolderFilesRecursively(
 ): Promise<string[]> {
   const listPath = `projects/${projectId}/${folderPath}`;
   const { data: items, error } = await supabase.storage
-    .from('octree')
+    .from('lars')
     .list(listPath);
 
   if (error || !items) {
@@ -348,7 +348,7 @@ export const renameFolder = async (
     const newFullPath = `projects/${projectId}/${newPath}/${relativePath}`;
 
     const { error: moveError } = await supabase.storage
-      .from('octree')
+      .from('lars')
       .move(oldFullPath, newFullPath);
 
     if (moveError) {
@@ -389,7 +389,7 @@ export const deleteFolder = async (
   );
 
   const { error: deleteError } = await supabase.storage
-    .from('octree')
+    .from('lars')
     .remove(fullPaths);
 
   if (deleteError) {
@@ -421,7 +421,7 @@ export const uploadImageToProject = async (
   const fullPath = `projects/${projectId}/${filePath}`;
 
   const { error: uploadError } = await supabase.storage
-    .from('octree')
+    .from('lars')
     .upload(fullPath, imageFile, {
       cacheControl: '3600',
       upsert: false,

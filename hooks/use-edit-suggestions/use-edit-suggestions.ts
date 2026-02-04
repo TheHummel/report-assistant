@@ -24,7 +24,7 @@ export function useEditSuggestions({
   cancelPendingSave,
 }: UseEditSuggestionsProps): EditSuggestionsState {
   // Use cached edit limit to check before requesting AI suggestions
-  // Note: Quota is consumed on generation (in /api/octra-agent), not on accept
+  // Note: Quota is consumed on generation (in /api/lars-agent), not on accept
   const { canEdit } = useEditLimitCache();
 
   // Manage suggestion queue with batching and multi-file support

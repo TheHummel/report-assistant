@@ -1,6 +1,6 @@
-# Claude Server
+# LARS Agent Server
 
-Standalone Express server running the Claude Agent SDK for the Octree LaTeX Editor.
+Standalone Express server running the Claude Agent SDK for LARS (LaTeX Report Assistant).
 
 ## 📋 Overview
 
@@ -36,6 +36,7 @@ export CLAUDE_SERVER_HOST="root@161.35.138.83"  # Optional, defaults to this
 ### First-Time Setup
 
 1. Set your Anthropic API key:
+
    ```bash
    export ANTHROPIC_API_KEY="your-key-here"
    ```
@@ -47,6 +48,7 @@ export CLAUDE_SERVER_HOST="root@161.35.138.83"  # Optional, defaults to this
    ```
 
 This will:
+
 - Create service user (`claude`)
 - Install dependencies
 - Set up systemd service
@@ -62,6 +64,7 @@ cd claude_server/scripts
 ```
 
 This will:
+
 - Create a backup of the current deployment
 - Sync updated files to the server
 - Install any new dependencies
@@ -72,7 +75,7 @@ This will:
 
 ```
 claude_server/
-├── agent-service.ts       # Main Express server
+├── agent-service-cern-litellm.ts       # Main Express server
 ├── package.json           # Dependencies
 ├── tsconfig.json          # TypeScript configuration
 ├── env.example            # Environment template
@@ -81,7 +84,7 @@ claude_server/
 ├── CHANGELOG.md           # Version history
 │
 ├── lib/
-│   └── octra-agent/       # Standalone copy of agent library
+│   └── lars-agent/       # Standalone copy of agent library
 │       ├── ast-edits.ts           # Edit validation
 │       ├── config.ts              # Configuration
 │       ├── content-processing.ts  # Content formatting
@@ -106,7 +109,7 @@ claude_server/
 - **Resources**: 2 vCPU, 2GB RAM
 - **OS**: Ubuntu 25.04
 - **Port**: 8787
-- **User**: octra (non-root)
+- **User**: lars (non-root)
 
 ### Systemd Service
 
@@ -124,7 +127,7 @@ Group=claude
 WorkingDirectory=/srv/claude-server
 Environment=NODE_ENV=production
 Environment=PORT=8787
-ExecStart=/usr/bin/npx tsx agent-service.ts
+ExecStart=/usr/bin/npx tsx agent-service-cern-litellm.ts
 Restart=always
 RestartSec=2
 
@@ -139,6 +142,7 @@ WantedBy=multi-user.target
 Process LaTeX editing requests with AI assistance.
 
 **Request:**
+
 ```json
 {
   "messages": [
@@ -159,6 +163,7 @@ Process LaTeX editing requests with AI assistance.
 **Response:** Server-Sent Events (SSE)
 
 Events emitted:
+
 - `status` - Service started/finished
 - `assistant_partial` - Streaming text chunks
 - `assistant_message` - Complete response
@@ -172,18 +177,21 @@ Events emitted:
 All scripts are located in `claude_server/scripts/`
 
 ### View Live Logs
+
 ```bash
 cd claude_server/scripts
 ./logs.sh
 ```
 
 ### Check Service Status
+
 ```bash
 cd claude_server/scripts
 ./status.sh
 ```
 
 Shows:
+
 - Service status
 - Process information
 - Memory/disk usage
@@ -191,12 +199,14 @@ Shows:
 - Endpoint test
 
 ### Deploy Updates
+
 ```bash
 cd claude_server/scripts
 ./deploy.sh
 ```
 
 Deploys code changes with:
+
 - Automatic backup
 - Dependency installation
 - Service restart
@@ -254,12 +264,14 @@ ssh root@161.35.138.83 'ss -tlnp | grep 8787'
 ### Current Implementation
 
 ✅ **Implemented:**
+
 - Non-root user execution
 - Systemd service isolation
 - Working directory permissions
 - Auto-restart on failure
 
 ⚠️ **Needed:**
+
 - [ ] API authentication
 - [ ] Rate limiting
 - [ ] HTTPS/TLS
@@ -451,6 +463,7 @@ When making changes:
 ## 📞 Support
 
 For issues:
+
 - Check logs: `cd claude_server/scripts && ./logs.sh`
 - Check status: `cd claude_server/scripts && ./status.sh`
 - Review this README
@@ -460,5 +473,4 @@ For issues:
 
 **Last Updated**: October 8, 2025  
 **Version**: 1.0.0  
-**Maintainer**: Octree AI Team
-
+**Maintainer**: LARS Development Team

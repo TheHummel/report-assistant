@@ -1,9 +1,9 @@
 /**
- * Analytics and monitoring for Octra AI interactions
+ * Analytics and monitoring for LARS AI interactions
  * Helps track usage patterns, model performance, and costs
  */
 
-export interface OctraAnalyticsEvent {
+export interface LarsAnalyticsEvent {
   eventType: 'request' | 'response' | 'error';
   model: string;
   timestamp: number;
@@ -14,11 +14,11 @@ export interface OctraAnalyticsEvent {
   fileLineCount?: number;
 }
 
-class OctraAnalytics {
-  private events: OctraAnalyticsEvent[] = [];
+class LarsAnalytics {
+  private events: LarsAnalyticsEvent[] = [];
   private readonly MAX_EVENTS = 1000;
 
-  logEvent(event: OctraAnalyticsEvent) {
+  logEvent(event: LarsAnalyticsEvent) {
     this.events.push(event);
 
     // Keep only recent events to prevent memory issues
@@ -32,7 +32,7 @@ class OctraAnalytics {
     }
   }
 
-  private sendToAnalytics(event: OctraAnalyticsEvent) {
+  private sendToAnalytics(event: LarsAnalyticsEvent) {
     // Placeholder for analytics integration (e.g., PostHog, Mixpanel, etc.)
     // console.log('[Analytics]', event);
   }
@@ -60,12 +60,12 @@ class OctraAnalytics {
 }
 
 // Singleton instance
-const analytics = new OctraAnalytics();
+const analytics = new LarsAnalytics();
 
-export function logOctraEvent(event: OctraAnalyticsEvent) {
+export function logLarsEvent(event: LarsAnalyticsEvent) {
   analytics.logEvent(event);
 }
 
-export function getOctraStats() {
+export function getLarsStats() {
   return analytics.getStats();
 } 

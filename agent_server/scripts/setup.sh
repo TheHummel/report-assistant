@@ -65,7 +65,7 @@ echo -e "${YELLOW}Step 4: Copying application files...${NC}"
 rsync -avz --progress $CLAUDE_SERVER_DIR/agent-service.ts $SERVER_HOST:$SERVER_PATH/
 rsync -avz --progress $CLAUDE_SERVER_DIR/package.json $SERVER_HOST:$SERVER_PATH/
 rsync -avz --progress $CLAUDE_SERVER_DIR/tsconfig.json $SERVER_HOST:$SERVER_PATH/
-rsync -avz --progress --delete $CLAUDE_SERVER_DIR/lib/octra-agent/ $SERVER_HOST:$SERVER_PATH/lib/octra-agent/
+rsync -avz --progress --delete $CLAUDE_SERVER_DIR/lib/lars-agent/ $SERVER_HOST:$SERVER_PATH/lib/lars-agent/
 
 echo ""
 echo -e "${YELLOW}Step 5: Installing dependencies...${NC}"

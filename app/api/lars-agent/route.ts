@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 // Import helper modules
-import { createSSEHeaders } from '@/lib/octra-agent/stream-handling';
+import { createSSEHeaders } from '@/lib/lars-agent/stream-handling';
 
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const remoteUrl = process.env.AGENT_SERVICE_URL;
     if (!remoteUrl) {
-      console.error('[Octra Proxy] AGENT_SERVICE_URL is not configured');
+      console.error('[LARS Proxy] AGENT_SERVICE_URL is not configured');
       return NextResponse.json(
         {
           error: 'Agent service unavailable',
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     console.log(
-      '[Octra Proxy] Forwarding authenticated request to agent server:',
+      '[LARS Proxy] Forwarding authenticated request to agent server:',
       remoteUrl
     );
 
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     if (!res.ok || !res.body) {
       console.error(
-        '[Octra Proxy] Remote server failed:',
+        '[LARS Proxy] Remote server failed:',
         res.status,
         res.statusText
       );
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log('[Octra Proxy] Streaming response from remote server...');
+    console.log('[LARS Proxy] Streaming response from remote server...');
 
     // Create a transform stream to log events as they pass through
     const { readable, writable } = new TransformStream();
@@ -93,12 +93,12 @@ export async function POST(request: Request) {
             const dataMatch = event.match(/data:\s*([\s\S]+)/);
             if (eventMatch) {
               const eventType = eventMatch[1];
-              console.log(`[Octra Proxy] Event received: ${eventType}`);
+              console.log(`[LARS Proxy] Event received: ${eventType}`);
 
               // Log error event payloads
               if (eventType === 'error' && dataMatch) {
                 console.error(
-                  '[Octra Proxy] Error event payload:',
+                  '[LARS Proxy] Error event payload:',
                   dataMatch[1]
                 );
               }
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
                 try {
                   const data = JSON.parse(dataMatch[1]);
                   console.log(
-                    `[Octra Proxy] Tool called: ${data.name}, count: ${data.count || 0}`
+                    `[LARS Proxy] Tool called: ${data.name}, count: ${data.count || 0}`
                   );
                 } catch {}
               }
@@ -128,9 +128,9 @@ export async function POST(request: Request) {
           error?.name === 'AbortError' ||
           error?.constructor?.name === 'ResponseAborted'
         ) {
-          console.log('[Octra Proxy] Stream aborted by client');
+          console.log('[LARS Proxy] Stream aborted by client');
         } else {
-          console.error('[Octra Proxy] Stream error:', err);
+          console.error('[LARS Proxy] Stream error:', err);
         }
         // Try to abort writer if not already closed
         try {
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
 
     return new Response(readable, { headers: createSSEHeaders() });
   } catch (error) {
-    console.error('Octra Agent SDK error:', error);
+    console.error('LARS Agent SDK error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: 'Failed to process agent request', details: message },

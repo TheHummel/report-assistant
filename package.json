@@ -1,7 +1,9 @@
 {
-  "name": "ai-latex-editor",
+  "name": "lars-report-assistant",
   "version": "0.1.0",
   "private": true,
+  "author": "Jannis Alsbach <jalsbach@cern.ch>",
+  "description": "LARS - LaTeX Report Assistant",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "node scripts/create-dummy-cli.js && next build",

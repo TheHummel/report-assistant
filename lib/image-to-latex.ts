@@ -20,7 +20,7 @@ export async function convertImageToLatex(
   fileName: string
 ): Promise<ImageToLatexResult> {
   try {
-    const response = await fetch('/api/octra-agent/image-to-latex', {
+    const response = await fetch('/api/lars-agent/image-to-latex', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -54,7 +54,7 @@ export async function deleteProject(projectId: string) {
     const projectFolderPath = `projects/${validatedProjectId}`;
 
     const { data: storageFiles, error: listError } = await supabase.storage
-      .from('octree')
+      .from('lars')
       .list(projectFolderPath);
 
     if (listError) {
@@ -65,7 +65,7 @@ export async function deleteProject(projectId: string) {
       );
 
       const { error: storageDeleteError } = await supabase.storage
-        .from('octree')
+        .from('lars')
         .remove(filePaths);
 
       if (storageDeleteError) {

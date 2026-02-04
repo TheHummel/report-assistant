@@ -1,5 +1,5 @@
 /**
- * Configuration utilities for the Octra Agent
+ * Configuration utilities for the LARS Agent
  * Centralizes configuration management and external server setup
  */
 
@@ -28,7 +28,7 @@ export function getExternalServerConfig() {
  */
 export function createMCPServerConfig(tools: unknown[]) {
   return {
-    name: 'octra-tools',
+    name: 'lars-tools',
     version: '1.0.0',
     tools,
   };

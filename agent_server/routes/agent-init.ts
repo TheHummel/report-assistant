@@ -4,10 +4,10 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { generateInitializationEdits } from '../lib/octra-agent/report-initialization';
+import { generateInitializationEdits } from '../lib/lars-agent/report-initialization';
 import { loadInitState, saveInitState } from '../lib/init-state-store';
 import { getTemplateTargetFiles } from '../lib/template-config';
-import type { LineEdit } from '../lib/octra-agent/line-edits';
+import type { LineEdit } from '../lib/lars-agent/line-edits';
 
 export function createAgentInitRouter(): Router {
   const router = Router();

@@ -1,5 +1,5 @@
 /**
- * CERN Agent Service for Octree LaTeX Editor
+ * CERN Agent Service for LARS (LaTeX Report Assistant)
  *
  * Uses CERN LiteLLM API
  *
@@ -19,7 +19,7 @@ import {
   buildNumberedContent,
   buildSystemPrompt,
   inferIntent,
-} from './lib/octra-agent';
+} from './lib/lars-agent';
 import { loadInitState } from './lib/init-state-store';
 import { createImageToLatexRouter } from './routes/image-to-latex';
 import { createAgentInitRouter } from './routes/agent-init';
@@ -33,8 +33,8 @@ import {
   AgentContext,
   ProjectFileContext,
 } from './lib/cern-litellm';
-import type { LineEdit } from './lib/octra-agent/line-edits';
-import type { IntentResult } from './lib/octra-agent/intent-inference';
+import type { LineEdit } from './lib/lars-agent/line-edits';
+import type { IntentResult } from './lib/lars-agent/intent-inference';
 
 const app = express();
 app.use(cors());

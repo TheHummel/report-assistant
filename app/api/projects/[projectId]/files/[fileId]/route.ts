@@ -23,7 +23,7 @@ export async function GET(
     const { projectId, fileId } = await params;
 
     const { data: storageFiles, error: listError } = await supabase.storage
-      .from('octree')
+      .from('lars')
       .list(`projects/${projectId}`);
 
     if (listError || !storageFiles) {
@@ -40,7 +40,7 @@ export async function GET(
     }
 
     const { data: fileBlob, error: downloadError } = await supabase.storage
-      .from('octree')
+      .from('lars')
       .download(`projects/${projectId}/${file.name}`);
 
     if (downloadError || !fileBlob) {
@@ -119,7 +119,7 @@ export async function PUT(
     if (!targetFilename) {
       // try to find file by ID
       const { data: storageFiles, error: listError } = await supabase.storage
-        .from('octree')
+        .from('lars')
         .list(`projects/${projectId}`);
 
       if (listError || !storageFiles) {
@@ -153,7 +153,7 @@ export async function PUT(
     }
 
     const { error: uploadError } = await supabase.storage
-      .from('octree')
+      .from('lars')
       .upload(`projects/${projectId}/${targetFilename}`, blob, {
         cacheControl: '3600',
         upsert: true,
@@ -185,7 +185,7 @@ export async function PUT(
       : `projects/${projectId}`;
 
     const { data: updatedFiles, error: listAfterError } = await supabase.storage
-      .from('octree')
+      .from('lars')
       .list(listPath);
 
     const updatedFile = updatedFiles?.find((f) => f.name === fileName);

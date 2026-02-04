@@ -69,8 +69,8 @@ export function useSuggestionDecorations({
         newDecorations.push({
           range: originalRange,
           options: {
-            className: 'octra-suggestion-deleted',
-            glyphMarginClassName: 'octra-suggestion-glyph',
+            className: 'lars-suggestion-deleted',
+            glyphMarginClassName: 'lars-suggestion-glyph',
             glyphMarginHoverMessage: {
               value: `Suggestion: Replace Lines ${startLineNumber}-${decorationEndLine}`,
             },
@@ -89,7 +89,7 @@ export function useSuggestionDecorations({
             1
           ),
           options: {
-            glyphMarginClassName: 'octra-suggestion-glyph',
+            glyphMarginClassName: 'lars-suggestion-glyph',
             glyphMarginHoverMessage: {
               value: `Suggestion: Insert at Line ${startLineNumber}`,
             },
@@ -114,7 +114,7 @@ export function useSuggestionDecorations({
           options: {
             after: {
               content: inlineSuggestedContent,
-              inlineClassName: 'octra-suggestion-added',
+              inlineClassName: 'lars-suggestion-added',
             },
             stickiness:
               monacoInstance.editor.TrackedRangeStickiness
