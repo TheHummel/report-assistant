@@ -308,6 +308,7 @@ export default function ProjectPage() {
             lastSaved={lastSaved}
             hasPdfData={!!pdfData}
             showInitializationOption={hasInitConfig}
+            isInitializationOpen={initializationMode}
           />
 
           <ResizablePanelGroup
@@ -437,6 +438,7 @@ export default function ProjectPage() {
             autoSendMessage={autoSendMessage}
             setAutoSendMessage={setAutoSendMessage}
             initializationMode={initializationMode}
+            setInitializationMode={setInitializationMode}
             reportInitState={reportInitState}
             onUpdateReportField={handleUpdateReportField}
             projectId={projectId}

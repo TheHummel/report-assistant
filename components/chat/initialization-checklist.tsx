@@ -23,6 +23,7 @@ interface InitializationChecklistProps {
   onStartQuestioning: () => void;
   onGenerateSuggestions: () => void;
   onUpdateField: (key: string, value: string, category: string) => void;
+  onClose?: () => void;
   isGenerating?: boolean;
 }
 
@@ -32,6 +33,7 @@ export function InitializationChecklist({
   onStartQuestioning,
   onGenerateSuggestions,
   onUpdateField,
+  onClose,
   isGenerating = false,
 }: InitializationChecklistProps) {
   const [completedCount, setCompletedCount] = useState(0);
@@ -116,11 +118,24 @@ export function InitializationChecklist({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Report Initialization</CardTitle>
-          <Badge
-            variant={completedCount === totalCount ? 'default' : 'secondary'}
-          >
-            {completedCount} / {totalCount} complete
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={completedCount === totalCount ? 'default' : 'secondary'}
+            >
+              {completedCount} / {totalCount} complete
+            </Badge>
+            {onClose && (
+              <Button
+                onClick={onClose}
+                variant="ghost"
+                size="sm"
+                className="h-auto p-1"
+                title="Close initialization"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">

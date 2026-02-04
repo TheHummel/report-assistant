@@ -44,6 +44,7 @@ interface ChatProps {
   autoSendMessage?: string | null;
   setAutoSendMessage?: (message: string | null) => void;
   initializationMode?: boolean;
+  setInitializationMode?: (mode: boolean) => void;
   reportInitState?: any;
   onUpdateReportField?: (key: string, value: string, category: string) => void;
   projectId?: string;
@@ -72,6 +73,7 @@ export function Chat({
   autoSendMessage,
   setAutoSendMessage,
   initializationMode = false,
+  setInitializationMode,
   reportInitState,
   onUpdateReportField,
   projectId,
@@ -109,6 +111,13 @@ export function Chat({
   useEffect(() => {
     setIsMac(navigator.platform.toUpperCase().indexOf('MAC') >= 0);
   }, []);
+
+  // clear messages when initialization mode is activated
+  useEffect(() => {
+    if (initializationMode && isOpen) {
+      setMessages([]);
+    }
+  }, [initializationMode, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -716,6 +725,7 @@ export function Chat({
                   onStartQuestioning={handleStartQuestioning}
                   onGenerateSuggestions={handleGenerateSuggestions}
                   onUpdateField={onUpdateReportField || (() => {})}
+                  onClose={() => setInitializationMode?.(false)}
                   isGenerating={isGeneratingSuggestions}
                 />
               ) : (

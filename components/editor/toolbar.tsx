@@ -31,6 +31,7 @@ interface EditorToolbarProps {
   lastSaved: Date | null;
   hasPdfData?: boolean;
   showInitializationOption?: boolean;
+  isInitializationOpen?: boolean;
 }
 
 export function EditorToolbar({
@@ -46,6 +47,7 @@ export function EditorToolbar({
   lastSaved,
   hasPdfData = false,
   showInitializationOption = true,
+  isInitializationOpen = false,
 }: EditorToolbarProps) {
   const [isMac, setIsMac] = useState(true);
 
@@ -55,7 +57,7 @@ export function EditorToolbar({
   return (
     <div className="flex-shrink-0 border-b border-slate-200 bg-white p-2">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <ButtonGroup>
             <ButtonGroupItem
               onClick={() => onTextFormat('bold')}
@@ -79,11 +81,15 @@ export function EditorToolbar({
 
           {showInitializationOption && (
             <Button
-              variant="default"
+              variant="ghost"
               size="sm"
               onClick={onOpenReportInitialization}
-              className="h-8 gap-1.5 border-slate-300 bg-gradient-to-b from-primary-light to-primary px-3 text-white hover:bg-gradient-to-b hover:from-primary-light/90 hover:to-primary/90"
-              title="Initialize with AI (⌘B)"
+              className={`h-8 gap-1.5 px-3 hover:bg-blue-100 hover:text-blue-800 hover:shadow ${
+                isInitializationOpen
+                  ? 'bg-blue-100 text-blue-800 shadow'
+                  : 'bg-blue-50 text-blue-700 shadow-sm'
+              }`}
+              title="Initialize with AI"
             >
               <WandSparkles className="h-3.5 w-3.5" />
               <span className="font-medium">Initialize with AI</span>
@@ -91,10 +97,10 @@ export function EditorToolbar({
           )}
 
           <Button
-            variant="default"
+            variant="ghost"
             size="sm"
             onClick={onOpenImageUpload}
-            className="h-8 gap-1.5 border-slate-300 bg-gradient-to-b from-pink-500 to-pink-600 px-3 text-white hover:bg-gradient-to-b hover:from-pink-600/90 hover:to-pink-700/90"
+            className="h-8 gap-1.5 bg-pink-50 px-3 text-pink-700 shadow-sm hover:bg-pink-100 hover:text-pink-800"
             title="Add Image (⌘U)"
           >
             <ImagePlus className="h-3.5 w-3.5" />
