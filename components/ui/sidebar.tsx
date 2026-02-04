@@ -303,6 +303,10 @@ function SidebarTrigger({
     }
   }, []);
 
+  if (state !== 'collapsed') {
+    return null;
+  }
+
   return (
     <Button
       data-sidebar="trigger"
@@ -316,10 +320,8 @@ function SidebarTrigger({
       }}
       {...props}
     >
-      {/* only display if sidebar is collapsed */}
-      {state === 'collapsed' && <ChevronsRight />}
+      <ChevronsRight />
       <span className="sr-only">Toggle Sidebar</span>
-      {/* {shortcut && <span className="ml-0.5 pt-0.5 text-xs text-muted-foreground">{shortcut}</span>} */}
     </Button>
   );
 }
