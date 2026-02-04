@@ -52,7 +52,7 @@ export function InitializationChecklist({
 
     setCompletedCount(completed);
     setTotalCount(requiredFieldQuestions.length);
-  }, [state]);
+  }, [state, questions]);
 
   const handleEditClick = (key: string, category: string) => {
     setEditingField(key);
