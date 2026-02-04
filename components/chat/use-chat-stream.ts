@@ -22,6 +22,7 @@ interface ProjectFileContextPayload {
 interface ProjectContextPayload {
   currentFilePath: string | null;
   projectFiles: ProjectFileContextPayload[];
+  projectId?: string;
 }
 
 interface StreamCallbacks {
