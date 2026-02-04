@@ -84,7 +84,7 @@ export function EditorToolbar({
               variant="ghost"
               size="sm"
               onClick={onOpenReportInitialization}
-              className={`h-8 gap-1.5 px-3 hover:bg-blue-100 hover:text-blue-800 hover:shadow ${
+              className={`h-8 gap-1.5 px-3 hover:bg-blue-100 hover:text-blue-800 ${
                 isInitializationOpen
                   ? 'bg-blue-100 text-blue-800 shadow'
                   : 'bg-blue-50 text-blue-700 shadow-sm'

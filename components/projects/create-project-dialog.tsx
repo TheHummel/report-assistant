@@ -32,7 +32,7 @@ export function CreateProjectDialog() {
       <DialogTrigger asChild>
         <Button
           size="sm"
-          className="bg-gradient-to-b from-primary-light to-primary hover:bg-gradient-to-b hover:from-primary-light/90 hover:to-primary/90"
+          className="border border-blue-500 bg-white text-blue-500 shadow hover:bg-blue-500 hover:text-white"
         >
           <PlusIcon />
           New Project

@@ -25,12 +25,12 @@ export default function Navbar({ userName }: NavbarProps) {
                 alt="Report Assistant Logo"
                 width={56}
                 height={56}
-                className="rounded-xl"
+                className="rounded-xl shadow"
                 unoptimized
               />
               <span
                 className={cn(
-                  'text-lg font-semibold tracking-tight text-blue-800',
+                  'text-lg font-semibold tracking-tight text-blue-800 drop-shadow',
                   dmSans.className
                 )}
               >
