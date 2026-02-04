@@ -134,10 +134,10 @@ export function ChatMessageComponent({
     >
       <div
         className={cn(
-          'shadow-xs min-w-0 break-words rounded-lg shadow-sm',
+          'min-w-0 break-words rounded-lg shadow-sm',
           message.role === 'assistant'
-            ? 'border-slate-200 bg-gradient-to-br from-blue-50 to-blue-50/50 p-3'
-            : 'border-slate-200 bg-white p-3'
+            ? 'bg-gradient-to-br from-blue-50 to-indigo-50/40 p-3 shadow-blue-100/50'
+            : 'bg-slate-50 p-3'
         )}
       >
         <div className="min-w-0 overflow-hidden whitespace-pre-wrap break-words text-sm text-slate-800">
