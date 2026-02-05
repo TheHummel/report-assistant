@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 
 /**
  * Image-to-LaTeX API Route (Proxy to Agent Server)
@@ -9,13 +9,9 @@ import { createClient } from '@/lib/supabase/server';
 export async function POST(request: NextRequest) {
   try {
     // Authenticate user
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
-    if (userError || !user) {
+    if (!user) {
       return new Response('Unauthorized. Please log in to use AI features.', {
         status: 401,
       });

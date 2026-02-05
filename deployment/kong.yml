@@ -1,0 +1,54 @@
+_format_version: "2.1"
+
+services:
+  - name: supabase-auth
+    url: http://auth:9999
+    routes:
+      - name: supabase-auth-route
+        paths:
+          - /auth/v1/
+        strip_path: true
+
+  - name: supabase-rest
+    url: http://postgrest:3000
+    routes:
+      - name: supabase-rest-route
+        paths:
+          - /rest/v1/
+        strip_path: true
+
+  - name: supabase-storage
+    url: http://storage:5000
+    routes:
+      - name: supabase-storage-route
+        paths:
+          - /storage/v1/
+        strip_path: true
+
+consumers:
+  - username: anon
+    keyauth_credentials:
+      - key: ${ANON_KEY}
+  - username: service_role
+    keyauth_credentials:
+      - key: ${SERVICE_ROLE_KEY}
+
+plugins:
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - apikey
+      credentials: true
+      max_age: 3600

@@ -2,14 +2,17 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 import { TablesInsert } from '@/database.types';
 import { z } from 'zod';
+import { headers } from 'next/headers';
 import {
   getTemplateFiles,
   getTemplateById,
   EMPTY_PROJECT_FILE,
 } from '@/lib/templates';
+import { uploadFile } from '@/lib/storage/adapter';
 
 const CreateProject = z.object({
   title: z.string().min(1, 'Project title is required').trim(),
@@ -27,16 +30,20 @@ export async function createProject(
   templateId?: string | null
 ): Promise<CreateProjectResult> {
   try {
-    const supabase = await createClient();
+    const user = await getCurrentUser();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    if (!user) {
       redirect('/auth/login');
     }
+
+    // Check if user is authenticated via headers
+    const headersList = await headers();
+    const email = headersList.get('x-forwarded-user');
+
+    // Use service client for users authenticated via headers (bypasses RLS), regular client for Supabase auth users
+    const supabase = (
+      email ? await createServiceClient() : await createClient()
+    ) as any;
 
     const validatedFields = CreateProject.safeParse({
       title,
@@ -128,44 +135,18 @@ async function uploadFileToProject(
   contentType: string,
   isBinary: boolean
 ): Promise<void> {
-  const filePath = `projects/${projectId}/${fileName}`;
-
-  const fileContent = isBinary ? Buffer.from(content, 'base64') : content;
-
-  const { error: storageError } = await supabase.storage
-    .from('lars')
-    .upload(filePath, fileContent, {
-      contentType,
-      upsert: false,
-    });
-
-  if (storageError) {
-    console.error(`Error uploading file ${fileName} to storage:`, storageError);
-    throw new Error(`Failed to upload file ${fileName} to storage`);
-  }
-
-  const { data: urlData } = supabase.storage
-    .from('lars')
-    .getPublicUrl(filePath);
-
-  const fileSize = isBinary
-    ? Buffer.from(content, 'base64').length
-    : content.length;
-
-  const fileToInsert: TablesInsert<'files'> = {
-    project_id: projectId,
-    name: fileName,
-    type: contentType,
-    size: fileSize,
-    url: urlData.publicUrl,
-  };
-
-  const { error: fileError } = await (supabase.from('files') as any).insert(
-    fileToInsert
+  // Use storage adapter (handles both Storage and Database modes)
+  const { error } = await uploadFile(
+    supabase as any,
+    projectId,
+    fileName,
+    content,
+    contentType,
+    isBinary
   );
 
-  if (fileError) {
-    console.error(`Error creating file record for ${fileName}:`, fileError);
-    throw new Error(`Failed to create file record for ${fileName}`);
+  if (error) {
+    console.error(`Error uploading file ${fileName}:`, error);
+    throw new Error(`Failed to upload file ${fileName}`);
   }
 }

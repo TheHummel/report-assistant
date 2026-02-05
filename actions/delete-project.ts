@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
+import { headers } from 'next/headers';
 import { z } from 'zod';
 
 const DeleteProject = z.object({
@@ -17,16 +19,20 @@ export type State = {
 
 export async function deleteProject(projectId: string) {
   try {
-    const supabase = await createClient();
+    const user = await getCurrentUser();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    if (!user) {
       redirect('/auth/login');
     }
+
+    // Check if user is authenticated via headers
+    const headersList = await headers();
+    const email = headersList.get('x-forwarded-user');
+
+    // Use service client for users authenticated via headers (bypasses RLS), regular client for Supabase auth users
+    const supabase = (
+      email ? await createServiceClient() : await createClient()
+    ) as any;
 
     const validatedFields = DeleteProject.safeParse({
       projectId,
@@ -51,28 +57,8 @@ export async function deleteProject(projectId: string) {
       );
     }
 
-    const projectFolderPath = `projects/${validatedProjectId}`;
-
-    const { data: storageFiles, error: listError } = await supabase.storage
-      .from('lars')
-      .list(projectFolderPath);
-
-    if (listError) {
-      console.error('Error listing storage files:', listError);
-    } else if (storageFiles && storageFiles.length > 0) {
-      const filePaths = storageFiles.map(
-        (file) => `${projectFolderPath}/${file.name}`
-      );
-
-      const { error: storageDeleteError } = await supabase.storage
-        .from('lars')
-        .remove(filePaths);
-
-      if (storageDeleteError) {
-        console.error('Error deleting storage files:', storageDeleteError);
-        throw new Error('Failed to delete project files from storage');
-      }
-    }
+    // Files are stored in database and will be deleted by CASCADE
+    // when the project is deleted (files.project_id foreign key)
 
     const { error: documentsError } = await supabase
       .from('documents')

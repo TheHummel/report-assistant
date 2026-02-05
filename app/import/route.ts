@@ -2,9 +2,11 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 import { TablesInsert } from '@/database.types';
 import { getContentTypeByFilename } from '@/lib/constants/file-types';
+import { uploadFile } from '@/lib/storage/adapter';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -13,16 +15,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/', url.origin));
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     const loginUrl = new URL('/auth/login', url.origin);
-    loginUrl.searchParams.set('next', `/import?draft=${encodeURIComponent(draftId)}`);
+    loginUrl.searchParams.set(
+      'next',
+      `/import?draft=${encodeURIComponent(draftId)}`
+    );
     return NextResponse.redirect(loginUrl);
   }
+
+  const supabase = (
+    user.app_metadata?.provider === 'email'
+      ? await createClient()
+      : await createServiceClient()
+  ) as any;
 
   // Fetch draft
   const { data: draft, error: draftError } = await (supabase
@@ -54,49 +62,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/', url.origin));
   }
 
-  // Upload file content to Supabase Storage
+  // Upload file content using storage adapter
   const mimeType = getContentTypeByFilename('main.tex');
   const blob = new Blob([content], { type: mimeType });
-  const filePath = `projects/${project.id}/main.tex`;
 
-  const { error: uploadError } = await supabase.storage
-    .from('lars')
-    .upload(filePath, blob, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: mimeType,
-    });
+  const uploadResult = await uploadFile(supabase, project.id, 'main.tex', blob);
 
-  if (uploadError) {
-    console.error('Error uploading file to storage:', uploadError);
+  if (uploadResult.error) {
+    console.error('Error uploading file to storage:', uploadResult.error);
     return NextResponse.redirect(new URL('/', url.origin));
   }
 
-  // Get public URL for the file
-  const { data: urlData } = supabase.storage
-    .from('lars')
-    .getPublicUrl(filePath);
-
-  // Insert file record
-  const fileToInsert: TablesInsert<'files'> = {
-    project_id: project.id,
-    name: 'main.tex',
-    type: mimeType,
-    size: content.length,
-    url: urlData.publicUrl,
-  };
-
-  const { error: fileError } = await supabase
-    .from('files')
-    .insert(fileToInsert);
-
-  if (fileError) {
-    console.error('Error creating file record:', fileError);
-    return NextResponse.redirect(new URL(`/projects/${project.id}`, url.origin));
-  }
-
   // Delete draft (best effort)
-  await (supabase.from('drafts' as any).delete().eq('id', draftId) as any);
+  await (supabase
+    .from('drafts' as any)
+    .delete()
+    .eq('id', draftId) as any);
 
   return NextResponse.redirect(new URL(`/projects/${project.id}`, url.origin));
-} 
+}

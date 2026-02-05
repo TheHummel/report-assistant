@@ -2,17 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/database.types';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
+import { headers } from 'next/headers';
 import { z } from 'zod';
 
 const RenameProject = z.object({
   projectId: z.string().uuid('Invalid project ID'),
-  title: z
-    .string()
-    .min(1, 'Title is required')
-    .max(200, 'Title is too long'),
+  title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
 });
 
 export type RenameState = {
@@ -27,16 +24,20 @@ export async function renameProject(
   formData: FormData
 ) {
   try {
-    const supabase = await createClient();
+    const user = await getCurrentUser();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    if (!user) {
       redirect('/auth/login');
     }
+
+    // Check if user is authenticated via headers
+    const headersList = await headers();
+    const email = headersList.get('x-forwarded-user');
+
+    // Use service client for users authenticated via headers (bypasses RLS), regular client for Supabase auth users
+    const supabase = (
+      email ? await createServiceClient() : await createClient()
+    ) as any;
 
     const validatedFields = RenameProject.safeParse({
       projectId: formData.get('projectId') as string,
@@ -50,7 +51,7 @@ export async function renameProject(
     const { projectId, title } = validatedFields.data;
 
     // Ensure the project belongs to the user
-    const { data: project, error: projectError } = await supabase
+    const { data: project, error: projectError } = await (supabase as any)
       .from('projects')
       .select('id')
       .eq('id', projectId)
@@ -61,8 +62,7 @@ export async function renameProject(
       throw new Error('Project not found or unauthorized');
     }
 
-    const typedSupabase = supabase as unknown as SupabaseClient<Database>;
-    const { error: updateError } = await typedSupabase
+    const { error: updateError } = await (supabase as any)
       .from('projects')
       .update({ title })
       .eq('id', projectId)
@@ -87,10 +87,9 @@ export async function renameProject(
     return {
       projectId: null,
       title: null,
-      message: error instanceof Error ? error.message : 'Failed to rename project',
+      message:
+        error instanceof Error ? error.message : 'Failed to rename project',
       success: false,
     } satisfies RenameState;
   }
 }
-
-

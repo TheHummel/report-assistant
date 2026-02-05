@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 import { TablesInsert } from '@/database.types';
 import JSZip from 'jszip';
 import {
   getContentTypeByFilename,
   SUPPORTED_TEXT_FILE_EXTENSIONS,
 } from '@/lib/constants/file-types';
+import { uploadFile } from '@/lib/storage/adapter';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
 const MAX_FILES = 100; // Maximum files per project
@@ -19,14 +21,18 @@ interface ExtractedFile {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Use service client for auth, regular client for Supabase auth
+    const supabase = (
+      user.app_metadata?.provider === 'email'
+        ? await createClient()
+        : await createServiceClient()
+    ) as any;
 
     // Parse form data
     const formData = await request.formData();
@@ -152,7 +158,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload all files to Supabase Storage
+    // Upload all files using storage adapter
     const uploadPromises = extractedFiles.map(async (file) => {
       try {
         const mimeType = getContentTypeByFilename(file.name);
@@ -164,17 +170,23 @@ export async function POST(request: NextRequest) {
           blob = new Blob([file.content as ArrayBuffer], { type: mimeType });
         }
 
-        const { error: uploadError } = await supabase.storage
-          .from('lars')
-          .upload(`projects/${project.id}/${file.name}`, blob, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: mimeType,
-          });
+        const uploadResult = await uploadFile(
+          supabase,
+          project.id,
+          file.name,
+          blob
+        );
 
-        if (uploadError) {
-          console.error(`Failed to upload file ${file.name}:`, uploadError);
-          return { success: false, error: uploadError, fileName: file.name };
+        if (uploadResult.error) {
+          console.error(
+            `Failed to upload file ${file.name}:`,
+            uploadResult.error
+          );
+          return {
+            success: false,
+            error: uploadResult.error,
+            fileName: file.name,
+          };
         }
 
         return { success: true, fileName: file.name };

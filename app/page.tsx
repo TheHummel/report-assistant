@@ -1,27 +1,19 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 import { CreateProjectDialog } from '@/components/projects/create-project-dialog';
 import { ProjectsTable } from '@/components/projects/projects-table';
 import Navbar from '@/components/navbar';
 import { getAllProjects } from '@/actions/get-projects';
 
 export default async function Dashboard() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect('/auth/login');
   }
 
   const userName = user?.user_metadata?.name ?? user?.email ?? null;
-
   const data = await getAllProjects();
-
-  if (!data) {
-    return <div>No data</div>;
-  }
 
   return (
     <>
@@ -39,7 +31,7 @@ export default async function Dashboard() {
           <CreateProjectDialog />
         </div>
 
-        <ProjectsTable data={data} />
+        <ProjectsTable data={data || []} />
       </main>
     </>
   );

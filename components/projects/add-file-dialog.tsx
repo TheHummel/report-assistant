@@ -19,6 +19,7 @@ import { Plus, Upload, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { useProjectFilesRevalidation } from '@/hooks/use-file-editor';
+import { uploadFile } from '@/lib/storage/adapter';
 import { FileActions } from '@/stores/file';
 import {
   ALL_SUPPORTED_FILE_TYPES,
@@ -97,33 +98,28 @@ export function AddFileDialog({
       }
 
       const fullPath = targetFolder ? `${targetFolder}/${fileName}` : fileName;
-      const mimeType = getContentTypeByFilename(fileName);
-      const { error: uploadError } = await supabase.storage
-        .from('lars')
-        .upload(`projects/${projectId}/${fullPath}`, selectedFile, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: mimeType,
-        });
 
-      if (uploadError) {
+      // Upload file using storage adapter
+      const uploadResult = await uploadFile(
+        supabase,
+        projectId,
+        fullPath,
+        selectedFile
+      );
+
+      if (uploadResult.error) {
         throw new Error('Failed to upload file');
       }
 
-      const { data: storageFiles } = await supabase.storage
-        .from('lars')
-        .list(`projects/${projectId}`);
-
-      const uploadedFile = storageFiles?.find((f) => f.name === fileName);
-
-      if (uploadedFile) {
+      if (uploadResult.data) {
         FileActions.setSelectedFile({
-          id: uploadedFile.id,
-          name: uploadedFile.name,
+          id: uploadResult.data.id,
+          name: uploadResult.data.name,
           project_id: projectId,
-          size: uploadedFile.metadata?.size || null,
-          type: uploadedFile.metadata?.mimetype || null,
-          uploaded_at: uploadedFile.created_at,
+          size: uploadResult.data.size,
+          type: uploadResult.data.type,
+          uploaded_at:
+            uploadResult.data.uploaded_at || new Date().toISOString(),
         });
       }
 
@@ -164,23 +160,19 @@ export function AddFileDialog({
       const mimeType = getContentTypeByFilename(fileName);
       const blob = new Blob([content], { type: mimeType });
 
-      const { error: uploadError } = await supabase.storage
-        .from('lars')
-        .upload(`projects/${projectId}/${fullPath}`, blob, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: mimeType,
-        });
+      // Upload file using storage adapter
+      const uploadResult = await uploadFile(
+        supabase,
+        projectId,
+        fullPath,
+        blob
+      );
 
-      if (uploadError) {
+      if (uploadResult.error) {
         throw new Error('Failed to create file');
       }
 
-      const { data: storageFiles } = await supabase.storage
-        .from('lars')
-        .list(`projects/${projectId}`);
-
-      const createdFile = storageFiles?.find((f) => f.name === fileName);
+      const createdFile = uploadResult.data;
 
       handleOpenChange(false);
       onFileAdded?.();
@@ -191,9 +183,9 @@ export function AddFileDialog({
           id: createdFile.id,
           name: createdFile.name,
           project_id: projectId,
-          size: createdFile.metadata?.size || null,
-          type: createdFile.metadata?.mimetype || null,
-          uploaded_at: createdFile.created_at,
+          size: createdFile.size,
+          type: createdFile.type,
+          uploaded_at: createdFile.uploaded_at || new Date().toISOString(),
         });
       }
     } catch (error) {

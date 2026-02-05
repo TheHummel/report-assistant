@@ -6,6 +6,16 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
+  // Check for SSO headers first (production on OKD)
+  const ssoEmail = request.headers.get('x-forwarded-user');
+  const isApiRoute = request.nextUrl.pathname.startsWith('/api/');
+
+  if (ssoEmail) {
+    // User authenticated via SSO - allow through
+    console.log('[middleware] SSO user authenticated:', ssoEmail);
+    return supabaseResponse;
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -40,8 +50,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Skip auth redirect for API routes - they will handle auth internally
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api/');
-  
+
   if (
     !user &&
     !isApiRoute &&
@@ -51,7 +60,10 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/auth/login';
     // Preserve destination so the app can continue the flow after login
-    url.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    url.searchParams.set(
+      'next',
+      `${request.nextUrl.pathname}${request.nextUrl.search}`
+    );
     // Use 303 so POST navigations become GET at the login page (prevents 405)
     return NextResponse.redirect(url, { status: 303 });
   }

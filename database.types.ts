@@ -157,6 +157,7 @@ export type Database = {
           type: string | null;
           uploaded_at: string | null;
           url: string | null;
+          content: string | null;
         };
         Insert: {
           id?: string;
@@ -166,6 +167,7 @@ export type Database = {
           type?: string | null;
           uploaded_at?: string | null;
           url?: string | null;
+          content?: string | null;
         };
         Update: {
           id?: string;
@@ -175,6 +177,7 @@ export type Database = {
           type?: string | null;
           uploaded_at?: string | null;
           url?: string | null;
+          content?: string | null;
         };
         Relationships: [
           {

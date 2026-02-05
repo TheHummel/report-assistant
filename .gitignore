@@ -50,3 +50,5 @@ report-templates/*/
 !report-templates/thesis-template
 
 agent_server/data
+
+.env.vm

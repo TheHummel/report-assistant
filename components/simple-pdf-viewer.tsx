@@ -2,10 +2,10 @@
 
 import '@/lib/promise-polyfill';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { Button } from '@/components/ui/button';
+import { getFileContent } from '@/actions/get-project-files';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
@@ -36,16 +36,26 @@ export function SimplePDFViewer({ projectId, fileName }: SimplePDFViewerProps) {
       setError(null);
 
       try {
-        const supabase = createClient();
-        const { data, error: downloadError } = await supabase.storage
-          .from('lars')
-          .download(`projects/${projectId}/${fileName}`);
+        // Use server action to fetch file content (bypasses RLS for users authenticated via headers)
+        const { data: fileData, error: fetchError } = await getFileContent(
+          projectId,
+          fileName
+        );
 
-        if (downloadError) {
-          throw new Error('Failed to load PDF');
+        if (fetchError || !fileData || !fileData.content) {
+          throw new Error(fetchError || 'Failed to load PDF');
         }
 
-        setPdfBlob(data);
+        // Convert base64 to blob
+        const binaryString = atob(fileData.content);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], {
+          type: fileData.type || 'application/pdf',
+        });
+        setPdfBlob(blob);
         setIsLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load PDF');

@@ -1,83 +1,76 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import {
   getContentTypeByFilename,
   isBinaryFile,
 } from '@/lib/constants/file-types';
+import { downloadFile, updateFile } from '@/lib/storage/adapter';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string; fileId: string }> }
 ) {
   try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const supabase = (
+      user.app_metadata?.provider === 'email'
+        ? await createClient()
+        : await createServiceClient()
+    ) as any;
+
     const { projectId, fileId } = await params;
 
-    const { data: storageFiles, error: listError } = await supabase.storage
-      .from('lars')
-      .list(`projects/${projectId}`);
+    // Get file metadata from database
+    const { data: fileRecord, error: fileError } = await supabase
+      .from('files')
+      .select('*')
+      .eq('id', fileId)
+      .eq('project_id', projectId)
+      .single();
 
-    if (listError || !storageFiles) {
-      return NextResponse.json(
-        { error: 'Failed to list files' },
-        { status: 500 }
-      );
-    }
-
-    const file = storageFiles.find((f) => f.id === fileId);
-
-    if (!file) {
+    if (fileError || !fileRecord) {
       return NextResponse.json({ error: 'File not found' }, { status: 404 });
     }
 
-    const { data: fileBlob, error: downloadError } = await supabase.storage
-      .from('lars')
-      .download(`projects/${projectId}/${file.name}`);
+    // Download file content using storage adapter
+    const { data: content, error: downloadError } = await downloadFile(
+      supabase,
+      projectId,
+      fileRecord.name
+    );
 
-    if (downloadError || !fileBlob) {
+    if (downloadError || !content) {
       return NextResponse.json(
         { error: 'Failed to download file' },
         { status: 500 }
       );
     }
 
-    let content: string;
-    if (isBinaryFile(file.name)) {
-      const arrayBuffer = await fileBlob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      content = btoa(String.fromCharCode(...uint8Array));
-    } else {
-      content = await fileBlob.text();
-    }
-
     return NextResponse.json({
       file: {
-        id: file.id,
-        name: file.name,
+        id: fileRecord.id,
+        name: fileRecord.name,
         project_id: projectId,
-        size: file.metadata?.size || null,
-        type: file.metadata?.mimetype || null,
-        uploaded_at: file.created_at,
+        size: fileRecord.size,
+        type: fileRecord.type,
+        uploaded_at: fileRecord.uploaded_at,
       },
       document: {
-        id: file.id,
-        title: file.name,
+        id: fileRecord.id,
+        title: fileRecord.name,
         content: content,
         owner_id: user.id,
         project_id: projectId,
-        filename: file.name,
-        document_type: file.name === 'main.tex' ? 'article' : 'file',
-        created_at: file.created_at,
-        updated_at: file.updated_at || file.created_at,
+        filename: fileRecord.name,
+        document_type: fileRecord.name === 'main.tex' ? 'article' : 'file',
+        created_at: fileRecord.uploaded_at,
+        updated_at: fileRecord.uploaded_at,
       },
     });
   } catch (error) {
@@ -94,14 +87,16 @@ export async function PUT(
   { params }: { params: Promise<{ projectId: string; fileId: string }> }
 ) {
   try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = (
+      user.app_metadata?.provider === 'email'
+        ? await createClient()
+        : await createServiceClient()
+    ) as any;
 
     const { projectId, fileId } = await params;
     const { content, filename } = await request.json();
@@ -113,55 +108,40 @@ export async function PUT(
       );
     }
 
-    // use filename if provided, otherwise fall back to fileId lookup
+    // Use filename if provided, otherwise look up by fileId
     let targetFilename = filename;
 
     if (!targetFilename) {
-      // try to find file by ID
-      const { data: storageFiles, error: listError } = await supabase.storage
-        .from('lars')
-        .list(`projects/${projectId}`);
+      // Get file metadata from database
+      const { data: fileRecord, error: fileError } = await supabase
+        .from('files')
+        .select('name')
+        .eq('id', fileId)
+        .eq('project_id', projectId)
+        .single();
 
-      if (listError || !storageFiles) {
-        return NextResponse.json(
-          { error: 'Failed to list files' },
-          { status: 500 }
-        );
-      }
-
-      const file = storageFiles.find((f) => f.id === fileId);
-
-      if (!file) {
+      if (fileError || !fileRecord) {
         return NextResponse.json({ error: 'File not found' }, { status: 404 });
       }
 
-      targetFilename = file.name;
+      targetFilename = fileRecord.name;
     }
 
     const contentType = getContentTypeByFilename(targetFilename);
-    let blob: Blob;
+    const isBinary = isBinaryFile(targetFilename);
 
-    if (isBinaryFile(targetFilename)) {
-      const binaryString = atob(content);
-      const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-      blob = new Blob([bytes], { type: contentType });
-    } else {
-      blob = new Blob([content], { type: contentType });
-    }
+    // Update file using storage adapter
+    const { error: updateError } = await updateFile(
+      supabase,
+      projectId,
+      targetFilename,
+      content,
+      contentType,
+      isBinary
+    );
 
-    const { error: uploadError } = await supabase.storage
-      .from('lars')
-      .upload(`projects/${projectId}/${targetFilename}`, blob, {
-        cacheControl: '3600',
-        upsert: true,
-        contentType,
-      });
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
+    if (updateError) {
+      console.error('Upload error:', updateError);
       return NextResponse.json(
         { error: 'Failed to save file' },
         { status: 500 }
@@ -170,44 +150,40 @@ export async function PUT(
 
     revalidatePath(`/projects/${projectId}`);
 
-    // handle nested paths in filename
-    const lastSlashIndex = targetFilename.lastIndexOf('/');
-    const dirPath =
-      lastSlashIndex > 0 ? targetFilename.substring(0, lastSlashIndex) : '';
-    const fileName =
-      lastSlashIndex > 0
-        ? targetFilename.substring(lastSlashIndex + 1)
-        : targetFilename;
+    // Get updated file metadata
+    const { data: updatedFile, error: fetchError } = await supabase
+      .from('files')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('name', targetFilename)
+      .single();
 
-    // get updated file metadata after save
-    const listPath = dirPath
-      ? `projects/${projectId}/${dirPath}`
-      : `projects/${projectId}`;
-
-    const { data: updatedFiles, error: listAfterError } = await supabase.storage
-      .from('lars')
-      .list(listPath);
-
-    const updatedFile = updatedFiles?.find((f) => f.name === fileName);
+    const fileData = updatedFile || {
+      id: fileId,
+      name: targetFilename,
+      size: isBinary ? Buffer.from(content, 'base64').length : content.length,
+      type: contentType,
+      uploaded_at: new Date().toISOString(),
+    };
 
     return NextResponse.json({
       file: {
-        id: updatedFile?.id || fileId,
-        name: targetFilename,
+        id: fileData.id,
+        name: fileData.name,
         project_id: projectId,
-        size: updatedFile?.metadata?.size || null,
-        type: updatedFile?.metadata?.mimetype || null,
-        uploaded_at: updatedFile?.created_at || new Date().toISOString(),
+        size: fileData.size,
+        type: fileData.type,
+        uploaded_at: fileData.uploaded_at,
       },
       document: {
-        id: updatedFile?.id || fileId,
-        title: targetFilename,
+        id: fileData.id,
+        title: fileData.name,
         content: content,
         owner_id: user.id,
         project_id: projectId,
-        filename: targetFilename,
-        document_type: targetFilename === 'main.tex' ? 'article' : 'file',
-        created_at: updatedFile?.created_at || new Date().toISOString(),
+        filename: fileData.name,
+        document_type: fileData.name === 'main.tex' ? 'article' : 'file',
+        created_at: fileData.uploaded_at,
         updated_at: new Date().toISOString(),
       },
     });

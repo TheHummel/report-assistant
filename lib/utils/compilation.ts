@@ -33,25 +33,32 @@ export function createCompilationError(
 }
 
 export async function processFileContent(
-  fileBlob: Blob,
-  fileName: string
+  fileContentOrBlob: string | Blob,
+  fileName: string,
+  fileType?: string
 ): Promise<{ path: string; content: string; encoding?: string }> {
   const isBinary = isBinaryFile(fileName);
   let content: string;
 
-  if (isBinary) {
-    const arrayBuffer = await fileBlob.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    // Convert to base64 in chunks to avoid stack overflow with large files
-    let binary = '';
-    const chunkSize = 32768;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, i + chunkSize);
-      binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
-    }
-    content = btoa(binary);
+  // If content is already a string (from database storage)
+  if (typeof fileContentOrBlob === 'string') {
+    content = fileContentOrBlob;
   } else {
-    content = await fileBlob.text();
+    // Legacy blob handling (from Supabase Storage)
+    if (isBinary) {
+      const arrayBuffer = await fileContentOrBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      // Convert to base64 in chunks to avoid stack overflow with large files
+      let binary = '';
+      const chunkSize = 32768;
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+      }
+      content = btoa(binary);
+    } else {
+      content = await fileContentOrBlob.text();
+    }
   }
 
   const fileEntry: {
@@ -117,7 +124,10 @@ export async function makeCompilationRequest(
       }
     }
   } catch (parseError) {
-    data = { error: 'Failed to read compilation response', details: String(parseError) };
+    data = {
+      error: 'Failed to read compilation response',
+      details: String(parseError),
+    };
   }
 
   return { response, data };

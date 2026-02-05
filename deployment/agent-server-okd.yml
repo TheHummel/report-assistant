@@ -1,0 +1,131 @@
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: lars-agent-server
+  labels:
+    app: lars-agent-server
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: lars-agent-server:latest
+  source:
+    type: Binary
+    binary: {}
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: agent_server/Dockerfile
+  triggers:
+    - type: ConfigChange
+
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: lars-agent-server
+  labels:
+    app: lars-agent-server
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lars-agent-server
+  labels:
+    app: lars-agent-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lars-agent-server
+  template:
+    metadata:
+      labels:
+        app: lars-agent-server
+    spec:
+      containers:
+        - name: lars-agent-server
+          image: image-registry.openshift-image-registry.svc:5000/epr-latex-report-assistant/lars-agent-server:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8787
+              protocol: TCP
+          env:
+            - name: PORT
+              value: '8787'
+            - name: CERN_LITELLM_URL
+              value: 'https://llmgw-litellm.web.cern.ch/v1/chat/completions'
+            - name: CERN_LITELLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lars-agent-secrets
+                  key: litellm-api-key
+            - name: CERN_LITELLM_MODEL
+              value: 'mistral-large-latest'
+            - name: CERN_LITELLM_VISION_MODEL
+              value: 'meta-llama/llama-4-maverick-17b-128e-instruct'
+            - name: TOOL_CALL_DELAY_MS
+              value: '2000'
+            - name: NODE_ENV
+              value: 'production'
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: 1000m
+            requests:
+              memory: 512Mi
+              cpu: 500m
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8787
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8787
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lars-agent-server
+  labels:
+    app: lars-agent-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8787
+      targetPort: 8787
+      protocol: TCP
+      name: http
+  selector:
+    app: lars-agent-server
+
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: lars-agent-server
+  labels:
+    app: lars-agent-server
+spec:
+  to:
+    kind: Service
+    name: lars-agent-server
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+  wildcardPolicy: None

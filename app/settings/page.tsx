@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 import Navbar from '@/components/navbar';
 import {
   Card,
@@ -9,14 +9,10 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { EditProfileDialog } from '@/components/user/edit-profile-dialog';
-import { ChangePasswordDialog } from '@/components/user/change-password-dialog';
 import { User } from 'lucide-react';
 
 export default async function SettingsPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect('/auth/login');
@@ -64,7 +60,6 @@ export default async function SettingsPage() {
                 <EditProfileDialog
                   currentName={user.user_metadata.name || ''}
                 />
-                <ChangePasswordDialog />
               </div>
             </CardContent>
           </Card>

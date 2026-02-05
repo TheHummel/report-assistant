@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 
 // Import helper modules
 import { createSSEHeaders } from '@/lib/lars-agent/stream-handling';
@@ -7,13 +7,9 @@ import { createSSEHeaders } from '@/lib/lars-agent/stream-handling';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized. Please log in to use AI features.' },
         { status: 401 }

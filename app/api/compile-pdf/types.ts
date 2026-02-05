@@ -39,10 +39,10 @@ export interface CompilerResponse {
     log?: string;
     stdout?: string;
     stderr?: string;
+    summary?: string;
     requestId?: string | null;
     queueMs?: number | null;
     durationMs?: number | null;
     pdfBuffer?: string; // Base64-encoded partial PDF if available
   };
 }
-

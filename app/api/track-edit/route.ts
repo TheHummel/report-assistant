@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/requests/user';
 import { hasUnlimitedEdits } from '@/lib/paywall';
 import type { TablesInsert, TablesUpdate } from '@/database.types';
 import { MONTHLY_EDIT_LIMIT } from '@/lib/constants';
@@ -14,21 +15,22 @@ type UsageSlice = {
 // GET handler to check edit limits without incrementing
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const user = await getCurrentUser();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = (
+      user.app_metadata?.provider === 'email'
+        ? await createClient()
+        : await createServiceClient()
+    ) as any;
 
     const hasUnlimitedUser = hasUnlimitedEdits(user.email);
 
     // Fetch user usage data
-    const usageRes = await supabase
+    const usageRes = await (supabase as any)
       .from('user_usage' as const)
       .select(
         'edit_count, monthly_edit_count, daily_reset_date, monthly_reset_date'
@@ -131,16 +133,17 @@ export async function GET() {
 
 export async function POST() {
   try {
-    const supabase = await createClient();
+    const user = await getCurrentUser();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const supabase = (
+      user.app_metadata?.provider === 'email'
+        ? await createClient()
+        : await createServiceClient()
+    ) as any;
 
     const hasUnlimitedUser = hasUnlimitedEdits(user.email);
 

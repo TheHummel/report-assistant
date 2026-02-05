@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.env*.local
+*.log
+.DS_Store
+coverage
+.vscode
+.idea
+*.md
+!README.md
+__tests__
+*.test.ts
+*.test.tsx
+.gitignore

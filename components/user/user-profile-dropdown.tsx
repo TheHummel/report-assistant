@@ -48,13 +48,6 @@ export function UserProfileDropdown({ userName }: UserProfileDropdownProps) {
             <Settings className="mr-2 h-4 w-4" />
             Settings
           </DropdownMenuItem>
-
-          <DropdownMenuSeparator />
-
-          <DropdownMenuItem onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </>

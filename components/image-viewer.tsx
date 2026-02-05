@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { Loader2, ImageOff } from 'lucide-react';
+import { getFileContent } from '@/actions/get-project-files';
 
 interface ImageViewerProps {
   projectId: string;
@@ -20,16 +20,24 @@ export function ImageViewer({ projectId, fileName }: ImageViewerProps) {
       setError(null);
 
       try {
-        const supabase = createClient();
-        const { data: imageBlob, error: downloadError } = await supabase.storage
-          .from('lars')
-          .download(`projects/${projectId}/${fileName}`);
+        // Use server action to fetch file content (bypasses RLS for users authenticated via headers)
+        const { data: fileData, error: fetchError } = await getFileContent(
+          projectId,
+          fileName
+        );
 
-        if (downloadError || !imageBlob) {
-          throw new Error('Failed to load image');
+        if (fetchError || !fileData || !fileData.content) {
+          throw new Error(fetchError || 'Failed to load image');
         }
 
-        const url = URL.createObjectURL(imageBlob);
+        // Convert base64 to blob
+        const binaryString = atob(fileData.content);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: fileData.type || 'image/jpeg' });
+        const url = URL.createObjectURL(blob);
         setImageUrl(url);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load image');

@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: supabase_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your-super-secret-password}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgREST API
+  postgrest:
+    image: public.ecr.aws/supabase/postgrest:v13.0.7
+    container_name: supabase_rest
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://postgres:${POSTGRES_PASSWORD:-your-super-secret-password}@postgres:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+    ports:
+      - '3000:3000'
+
+  # GoTrue Auth
+  auth:
+    image: public.ecr.aws/supabase/gotrue:v2.183.0
+    container_name: supabase_auth
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-your-super-secret-password}@postgres:5432/postgres
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS}
+      GOTRUE_DISABLE_SIGNUP: 'false'
+      GOTRUE_MAILER_AUTOCONFIRM: 'true'
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+    ports:
+      - '9999:9999'
+
+  # Kong API Gateway
+  kong:
+    image: public.ecr.aws/supabase/kong:2.8.1
+    container_name: supabase_kong
+    restart: unless-stopped
+    depends_on:
+      - auth
+      - postgrest
+    environment:
+      KONG_DATABASE: 'off'
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_ORDER: LAST,A,CNAME
+      KONG_PLUGINS: request-transformer,cors,key-auth,acl
+      SUPABASE_ANON_KEY: ${ANON_KEY:-your-anon-key}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY:-your-service-role-key}
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./kong.yml:/var/lib/kong/kong.yml:ro
+
+  # Supabase Storage
+  storage:
+    image: public.ecr.aws/supabase/storage-api:v1.32.0
+    container_name: supabase_storage
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ANON_KEY: ${ANON_KEY:-your-anon-key}
+      SERVICE_KEY: ${SERVICE_ROLE_KEY:-your-service-role-key}
+      POSTGREST_URL: http://postgrest:3000
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-your-super-secret-password}@postgres:5432/postgres
+      FILE_SIZE_LIMIT: 52428800
+      STORAGE_BACKEND: file
+      FILE_STORAGE_BACKEND_PATH: /var/lib/storage
+      TENANT_ID: stub
+      REGION: stub
+      GLOBAL_S3_BUCKET: stub
+    volumes:
+      - storage_data:/var/lib/storage
+    ports:
+      - '5000:5000'
+
+  # LaTeX Compilation Service
+  latex-compile:
+    build:
+      context: ./octree-compile
+      dockerfile: deployments/Dockerfile
+    container_name: latex_compile
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      PORT: 3001
+      GIN_MODE: release
+    volumes:
+      - latex_logs:/app/logs
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3001/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres_data:
+  storage_data:
+  latex_logs:

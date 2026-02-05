@@ -28,7 +28,10 @@ import {
 } from '@/components/ui/resizable';
 import { formatCompilationErrorForAI } from '@/lib/utils';
 import { FileActions, useProjectFiles, useSelectedFile } from '@/stores/file';
-import { getProject, getProjectFiles } from '@/lib/requests/project';
+import {
+  getProject as getProjectAction,
+  getProjectFiles as getProjectFilesAction,
+} from '@/actions/get-project-files';
 import type { ProjectFile } from '@/hooks/use-file-editor';
 import { useParams } from 'next/navigation';
 import type { Project } from '@/types/project';
@@ -59,17 +62,24 @@ export default function ProjectPage() {
     data: projectData,
     isLoading: isProjectLoading,
     error: projectError,
-  } = useSWR<Project>(projectId ? ['project', projectId] : null, () =>
-    getProject(projectId)
-  );
+  } = useSWR<Project>(projectId ? ['project', projectId] : null, async () => {
+    const result = await getProjectAction(projectId);
+    if (result.error) throw new Error(result.error);
+    return result.data!;
+  });
 
   const {
     data: filesData,
     isLoading: isFilesLoading,
     error: filesError,
     mutate: mutateFiles,
-  } = useSWR<ProjectFile[]>(projectId ? ['files', projectId] : null, () =>
-    getProjectFiles(projectId)
+  } = useSWR<ProjectFile[]>(
+    projectId ? ['files', projectId] : null,
+    async () => {
+      const result = await getProjectFilesAction(projectId);
+      if (result.error) throw new Error(result.error);
+      return result.data!;
+    }
   );
 
   const {

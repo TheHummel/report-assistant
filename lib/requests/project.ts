@@ -1,23 +1,23 @@
 import { createClient } from '@/lib/supabase/client';
 import type { ProjectFile } from '@/hooks/use-file-editor';
 import { isBinaryFile } from '@/lib/constants/file-types';
+import {
+  listFiles,
+  downloadFile,
+  renameFile as renameFileAdapter,
+  deleteFile as deleteFileAdapter,
+  uploadFile,
+} from '@/lib/storage/adapter';
 
 export const getProject = async (projectId: string) => {
   const supabase = createClient();
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.user) {
-    throw new Error('User not authenticated');
-  }
-
+  // For authenticated users, we don't have a session but RLS policies still work
+  // because the service client is used on the server side
   const { data, error } = await supabase
     .from('projects')
     .select('*')
     .eq('id', projectId)
-    .eq('user_id', session.user.id)
     .single();
 
   if (error) throw error;
@@ -65,104 +65,63 @@ export const getProjectFiles = async (
 ): Promise<ProjectFile[]> => {
   const supabase = createClient();
 
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // For authenticated users, we don't have a session but RLS policies still work
+  // because the service client is used on the server side
 
-  if (!session?.user) {
-    throw new Error('User not authenticated');
+  // Use storage adapter (works with both Storage and Database modes)
+  const { data: files, error } = await listFiles(supabase, projectId);
+
+  if (error) {
+    console.error('Error fetching files:', error);
+    throw new Error('Failed to fetch project files');
   }
 
-  const storageFiles = await listAllFiles(supabase, projectId);
+  if (!files || files.length === 0) return [];
 
-  if (!storageFiles || storageFiles.length === 0) return [];
-
-  const actualFiles = storageFiles.filter((item) => item.id !== null);
-
+  // Download content for each file
   const filesWithContent = await Promise.all(
-    actualFiles.map(async (storageFile) => {
+    files.map(async (file) => {
       try {
-        const cacheBuster = `?t=${Date.now()}`;
-        const { data: fileBlob, error: downloadError } = await supabase.storage
-          .from('lars')
-          .download(`projects/${projectId}/${storageFile.name}${cacheBuster}`);
+        const { data: content, error: downloadError } = await downloadFile(
+          supabase,
+          projectId,
+          file.name
+        );
 
-        if (downloadError || !fileBlob) {
-          console.warn(
-            `Failed to download file ${storageFile.name}:`,
-            downloadError
-          );
-          return {
-            file: {
-              id: storageFile.id,
-              name: storageFile.name,
-              project_id: projectId,
-              size: null,
-              type: null,
-              uploaded_at: storageFile.created_at,
-            },
-            document: null,
-          };
-        }
-
-        let content: string;
-        if (isBinaryFile(storageFile.name)) {
-          const arrayBuffer = await fileBlob.arrayBuffer();
-          const uint8Array = new Uint8Array(arrayBuffer);
-          // Convert to base64 in chunks to avoid stack overflow with large files
-          let binary = '';
-          const chunkSize = 32768; // Process 32KB at a time
-          for (let i = 0; i < uint8Array.length; i += chunkSize) {
-            const chunk = uint8Array.subarray(i, i + chunkSize);
-            binary += String.fromCharCode.apply(
-              null,
-              chunk as unknown as number[]
-            );
-          }
-          content = btoa(binary);
-        } else {
-          content = await fileBlob.text();
+        if (downloadError || !content) {
+          console.warn(`Failed to download file ${file.name}:`, downloadError);
+          return null;
         }
 
         return {
           file: {
-            id: storageFile.id,
-            name: storageFile.name,
+            id: file.id,
+            name: file.name,
             project_id: projectId,
-            size: storageFile.metadata?.size || null,
-            type: storageFile.metadata?.mimetype || null,
-            uploaded_at: storageFile.created_at,
+            size: file.size,
+            type: file.type,
+            uploaded_at: file.created_at,
           },
           document: {
-            id: storageFile.id,
-            title: storageFile.name,
+            id: file.id,
+            title: file.name,
             content: content,
-            owner_id: session.user.id,
+            owner_id: '', // Not needed for authenticated users
             project_id: projectId,
-            filename: storageFile.name,
-            document_type: storageFile.name === 'main.tex' ? 'article' : 'file',
-            created_at: storageFile.created_at,
-            updated_at: storageFile.updated_at || storageFile.created_at,
+            filename: file.name,
+            document_type: file.name === 'main.tex' ? 'article' : 'file',
+            created_at: file.created_at,
+            updated_at: file.created_at,
           },
         };
       } catch (error) {
-        console.error(`Error processing file ${storageFile.name}:`, error);
-        return {
-          file: {
-            id: storageFile.id,
-            name: storageFile.name,
-            project_id: projectId,
-            size: null,
-            type: null,
-            uploaded_at: storageFile.created_at,
-          },
-          document: null,
-        };
+        console.error(`Error processing file ${file.name}:`, error);
+        return null;
       }
     })
   );
 
-  return filesWithContent.filter((item) => item.document !== null);
+  return filesWithContent.filter((item) => item !== null) as ProjectFile[];
 };
 
 export interface ImportProjectResponse {
@@ -212,14 +171,14 @@ export const renameFile = async (
     throw new Error('User not authenticated');
   }
 
-  const { error: moveError } = await supabase.storage
-    .from('lars')
-    .move(
-      `projects/${projectId}/${currentName}`,
-      `projects/${projectId}/${newName}`
-    );
+  const { error } = await renameFileAdapter(
+    supabase,
+    projectId,
+    currentName,
+    newName
+  );
 
-  if (moveError) {
+  if (error) {
     throw new Error('Failed to rename file');
   }
 };
@@ -239,11 +198,9 @@ export const deleteFile = async (
     throw new Error('User not authenticated');
   }
 
-  const { error: deleteError } = await supabase.storage
-    .from('lars')
-    .remove([`projects/${projectId}/${fileName}`]);
+  const { error } = await deleteFileAdapter(supabase, projectId, fileName);
 
-  if (deleteError) {
+  if (error) {
     throw new Error('Failed to delete file');
   }
 };
@@ -265,15 +222,9 @@ export const createFolder = async (
   const gitkeepPath = `${folderPath}/.gitkeep`;
   const blob = new Blob([''], { type: 'text/plain' });
 
-  const { error: uploadError } = await supabase.storage
-    .from('lars')
-    .upload(`projects/${projectId}/${gitkeepPath}`, blob, {
-      cacheControl: '3600',
-      upsert: false,
-      contentType: 'text/plain',
-    });
+  const { error } = await uploadFile(supabase, projectId, gitkeepPath, blob);
 
-  if (uploadError) {
+  if (error) {
     throw new Error('Failed to create folder');
   }
 };
@@ -283,6 +234,26 @@ async function listFolderFilesRecursively(
   projectId: string,
   folderPath: string
 ): Promise<string[]> {
+  // In database storage mode, query files table for files starting with folderPath
+  const USE_DB_STORAGE =
+    process.env.NEXT_PUBLIC_USE_DATABASE_STORAGE === 'true';
+
+  if (USE_DB_STORAGE) {
+    const { data: files, error } = await supabase
+      .from('files')
+      .select('name')
+      .eq('project_id', projectId)
+      .like('name', `${folderPath}/%`);
+
+    if (error) {
+      console.error('Error listing folder files:', error);
+      return [];
+    }
+
+    return files?.map((f: any) => f.name) || [];
+  }
+
+  // Storage mode
   const listPath = `projects/${projectId}/${folderPath}`;
   const { data: items, error } = await supabase.storage
     .from('lars')
@@ -340,20 +311,47 @@ export const renameFolder = async (
     throw new Error('Folder is empty or does not exist');
   }
 
+  const USE_DB_STORAGE =
+    process.env.NEXT_PUBLIC_USE_DATABASE_STORAGE === 'true';
+
   // Move all files to new location
   for (const filePath of filesToMove) {
     // calc relative path within the folder
     const relativePath = filePath.substring(currentPath.length + 1);
-    const oldFullPath = `projects/${projectId}/${filePath}`;
-    const newFullPath = `projects/${projectId}/${newPath}/${relativePath}`;
+    const newFileName = `${newPath}/${relativePath}`;
 
-    const { error: moveError } = await supabase.storage
-      .from('lars')
-      .move(oldFullPath, newFullPath);
+    if (USE_DB_STORAGE) {
+      // Database storage - update file name
+      const { error } = await (supabase as any)
+        .from('files')
+        .update({ name: newFileName })
+        .eq('project_id', projectId)
+        .eq('name', filePath);
 
-    if (moveError) {
-      console.error('Move error for', filePath, ':', moveError);
-      throw new Error(`Failed to move file: ${filePath}`);
+      if (error) {
+        console.error('Update error for', filePath, ':', error);
+        throw new Error(`Failed to move file: ${filePath}`);
+      }
+    } else {
+      // Storage mode - move file
+      const oldFullPath = `projects/${projectId}/${filePath}`;
+      const newFullPath = `projects/${projectId}/${newFileName}`;
+
+      const { error: moveError } = await (supabase as any).storage
+        .from('lars')
+        .move(oldFullPath, newFullPath);
+
+      if (moveError) {
+        console.error('Move error for', filePath, ':', moveError);
+        throw new Error(`Failed to move file: ${filePath}`);
+      }
+
+      // Update database record
+      await (supabase as any)
+        .from('files')
+        .update({ name: newFileName, url: newFullPath })
+        .eq('project_id', projectId)
+        .eq('name', filePath);
     }
   }
 };
@@ -383,18 +381,46 @@ export const deleteFolder = async (
     throw new Error('Folder is empty or does not exist');
   }
 
-  // delete all files
-  const fullPaths = filesToDelete.map(
-    (path) => `projects/${projectId}/${path}`
-  );
+  const USE_DB_STORAGE =
+    process.env.NEXT_PUBLIC_USE_DATABASE_STORAGE === 'true';
 
-  const { error: deleteError } = await supabase.storage
-    .from('lars')
-    .remove(fullPaths);
+  if (USE_DB_STORAGE) {
+    // Database storage - delete file records
+    for (const filePath of filesToDelete) {
+      const { error } = await supabase
+        .from('files')
+        .delete()
+        .eq('project_id', projectId)
+        .eq('name', filePath);
 
-  if (deleteError) {
-    console.error('Delete error:', deleteError);
-    throw new Error('Failed to delete folder contents');
+      if (error) {
+        console.error('Delete error for', filePath, ':', error);
+        throw new Error(`Failed to delete file: ${filePath}`);
+      }
+    }
+  } else {
+    // Storage mode - delete from storage
+    const fullPaths = filesToDelete.map(
+      (path) => `projects/${projectId}/${path}`
+    );
+
+    const { error: deleteError } = await supabase.storage
+      .from('lars')
+      .remove(fullPaths);
+
+    if (deleteError) {
+      console.error('Delete error:', deleteError);
+      throw new Error('Failed to delete folder contents');
+    }
+
+    // Delete database records
+    for (const filePath of filesToDelete) {
+      await supabase
+        .from('files')
+        .delete()
+        .eq('project_id', projectId)
+        .eq('name', filePath);
+    }
   }
 };
 
@@ -418,17 +444,15 @@ export const uploadImageToProject = async (
 
   // upload to Images folder
   const filePath = `Images/${fileName}`;
-  const fullPath = `projects/${projectId}/${filePath}`;
+  const uploadResult = await uploadFile(
+    supabase,
+    projectId,
+    filePath,
+    imageFile
+  );
 
-  const { error: uploadError } = await supabase.storage
-    .from('lars')
-    .upload(fullPath, imageFile, {
-      cacheControl: '3600',
-      upsert: false,
-    });
-
-  if (uploadError) {
-    throw new Error(`Failed to upload image: ${uploadError.message}`);
+  if (uploadResult.error) {
+    throw new Error(`Failed to upload image: ${uploadResult.error.message}`);
   }
 
   return filePath;
