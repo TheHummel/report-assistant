@@ -6,7 +6,7 @@
   "description": "LARS - LaTeX Report Assistant",
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "node scripts/create-dummy-cli.js && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
