@@ -11,26 +11,31 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useProjectFilesRevalidation } from '@/hooks/use-file-editor';
 import { createFolder } from '@/lib/requests/project';
 import { toast } from 'sonner';
+import { FolderPlus } from 'lucide-react';
 
 interface AddFolderDialogProps {
   projectId: string;
   projectTitle: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   targetFolder?: string | null;
 }
 
 export function AddFolderDialog({
   projectId,
   projectTitle,
-  open,
+  open: controlledOpen,
   onOpenChange,
   targetFolder = null,
 }: AddFolderDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = onOpenChange || setInternalOpen;
   const [folderName, setFolderName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +71,7 @@ export function AddFolderDialog({
       await createFolder(projectId, folderPath);
 
       handleOpenChange(false);
-      
+
       revalidate().then(() => {
         toast.success('Folder created successfully');
       });
@@ -79,7 +84,7 @@ export function AddFolderDialog({
   };
 
   const handleOpenChange = (newOpen: boolean) => {
-    onOpenChange(newOpen);
+    setOpen(newOpen);
     if (!newOpen) {
       setFolderName('');
       setError(null);
@@ -88,6 +93,13 @@ export function AddFolderDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
+      {controlledOpen === undefined && (
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-7 w-7">
+            <FolderPlus className="h-4 w-4" />
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add Folder to {projectTitle}</DialogTitle>

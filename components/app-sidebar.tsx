@@ -57,7 +57,14 @@ export function AppSidebar({ userName }: AppSidebarProps) {
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="h-[48px] flex-row items-center justify-between border-b border-gray-200">
-        <p className="px-3 text-sm font-medium">Files</p>
+        <div className="flex items-center gap-1">
+          <p className="px-3 font-medium">Files</p>
+          <AddFileDialog projectId={project.id} projectTitle={project.title} />
+          <AddFolderDialog
+            projectId={project.id}
+            projectTitle={project.title}
+          />
+        </div>
         <button
           onClick={toggleSidebar}
           className="rounded-md p-1.5 transition-colors hover:bg-gray-100"
