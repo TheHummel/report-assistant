@@ -1,202 +1,194 @@
 # LARS - LaTeX Report Assistant
 
-An AI-powered collaborative LaTeX editor with real-time PDF compilation and intelligent editing suggestions.
+<!-- TODO:
 
-# System Design
+- uses LiteLLM Endpoint
+- in deployment mode: uses forward-credentials for DB auth
+- System architecture
+- mention deployment branch
+- mention database setup
 
-<img width="1021" height="448" alt="Screenshot 1447-04-19 at 1 02 32 AM" src="https://github.com/user-attachments/assets/9039ab85-7089-49b2-9dfa-64d92a4da700" />
+-->
 
-## Prerequisites
+An AI-powered LaTeX editor with real-time compilation, designed for scientific report writing and technical documentation.
 
-Before running this project locally, ensure you have the following installed:
+![System Architecture]()
 
-- **Node.js** (v20 or higher)
-- **npm** or **yarn** or **pnpm** or **bun**
-- **Docker Desktop** (optional, for faster local LaTeX PDF compilation - falls back to remote service if not available)
-- **Supabase CLI** (optional, for local database development)
+## Features
 
-## Getting Started
+### AI-Powered Editing
 
-### 1. Clone the Repository
+- **Agent**: Intelligent LaTeX editing assistant powered by LLMs
+- **Smart Suggestions**: Context-aware improvements and corrections
+- **Image-to-LaTeX**: Convert mathematical equations and diagrams from images to LaTeX code
+- **Interactive Chat**: Natural language interface for document editing
 
-```bash
-git clone <your-repository-url>
-cd report-assistant
-```
+### Collaborative Editor
 
-### 2. Install Dependencies
+- **Multi-file Projects**: Organize complex documents with multiple .tex files, images, and assets
+- **Template System**: Quick-start with pre-configured report templates ([Template Guide](./report-templates/README.md))
+- **Real-time Compilation**: Instant PDF preview with integrated LaTeX compiler
+- **File Management**: Upload images, organize in folders, import complete projects via ZIP
 
-```bash
-npm install
-# or
-yarn install
-# or
-pnpm install
-```
+## Quick Start
 
-### 3. Environment Variables
+### Prerequisites
 
-Create a `.env.local` file in the root directory with the following variables:
+- Node.js 20+
+- pnpm 10+ (or npm/yarn/bun)
+- Supabase account (for local development)
 
-```bash
-# Supabase Configuration (Required)
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+### Local Development
 
-# AI Provider Key (Required for AI editing features)
-OPENAI_API_KEY=your_openai_api_key
-
-# Environment (Optional)
-ENVIRONMENT=dev  # Set to 'prod' for production
-NODE_ENV=development
-```
-
-#### Getting Your Keys:
-
-- **Supabase**: Sign up at [supabase.com](https://supabase.com), create a project, and get your URL and anon key from Project Settings > API
-- **OpenAI**: Get API key from [platform.openai.com](https://platform.openai.com/api-keys) - The app uses GPT-5 with smart model selection (GPT-5 mini for small tasks, GPT-5 for large/complex files)
-
-### 4. Database Setup
-
-This project uses Supabase for authentication and data storage. You need to:
-
-1. **Create a Supabase project** at [supabase.com](https://supabase.com)
-2. **Run migrations** (located in `supabase/migrations/`):
+1. **Clone and install**
 
    ```bash
-   # If using Supabase CLI locally
+   git clone <your-repo-url>
+   cd report-assistant
+   pnpm install
+   ```
+
+2. **Environment setup**
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Required variables:
+
+   ```env
+   # Supabase
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+
+   # AI Provider
+   API_URL=https://litellm.your-endpoint.com/v1/chat/completions
+   API_KEY=sk-XXX
+
+   # Services
+   COMPILE_SERVICE_URL=http://localhost:3001
+   AGENT_SERVICE_URL=http://localhost:3002
+   ```
+
+3. **Database setup**
+
+   Quick version:
+
+   ```bash
+   # Using Supabase CLI
+   supabase start
    supabase db push
-
-   # Or manually run the SQL files in the Supabase SQL Editor:
-   # - 001_add_user_usage_table.sql
-   # - 002_add_monthly_limits.sql
-   # - 003_fix_ambiguous_column_reference.sql
    ```
 
-### 5. Docker Setup (for PDF Compilation) - Optional
+4. **Start development**
 
-The app can compile LaTeX to PDF locally using Docker in development mode:
-
-1. **Install Docker Desktop** from [docker.com](https://www.docker.com/products/docker-desktop) (optional)
-2. **Start Docker Desktop** (if installed)
-3. **Pull the TeX Live image** (optional, will auto-pull on first use):
    ```bash
-   docker pull texlive/texlive
+   # Main app
+   pnpm dev
+
+   # Agent server (separate terminal)
+   cd agent_server && pnpm dev
    ```
 
-> **Note**:
->
-> - If Docker is not installed or not running, the app automatically falls back to the remote compilation service
-> - In production (`ENVIRONMENT=prod`), the app always uses the remote compilation service
-> - Docker is recommended for faster local compilation, but **not required**
+## Documentation
 
-#### Alternatively, run octree-compile locally
+- **[Deployment Guide](./deployment/README.md)** - Production deployment (OpenShift, VM, Docker)
+- **[Template Guide](./report-templates/README.md)** - Creating custom LaTeX templates
 
-Short instructions to run the octree-compile service locally:
+<!-- ## Tech Stack
 
-```bash
-# Clone the repo
-git clone https://github.com/octree-labs/octree-compile.git
-cd octree-compile
+**Frontend:**
 
-# run with docker
-docker build -t octree-compile .
-docker run -d -p 3001:3001 octree-compile
+- Next.js 16 (App Router, React 19)
+- TypeScript
 
-# Or run with Go
-go mod download    # ensure dependencies
-make run           # hot-reload dev server on http://localhost:3001
-# or build and run the binary:
-make build
-./latex-compile
-```
+**Backend:**
 
-### 6. Run the Development Server
+- Supabase (PostgreSQL, Auth, Storage)
+- Custom LaTeX compiler
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+**Infrastructure:**
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
+- OpenShift/OKD (frontend)
+- Docker + docker-compose (backend)
+- VM deployment (optional) -->
 
 ## Project Structure
 
 ```
-ai-latex-editor/
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes
-│   ├── auth/              # Authentication pages
-│   ├── projects/          # Project management
+report-assistant/
+├── app/                  # Next.js app directory
+│   ├── api/              # API routes
+│   ├── projects/         # Project editor
 │   └── ...
-├── components/            # React components
-│   ├── editor/           # Editor-specific components
-│   ├── ui/               # Reusable UI components
-│   └── ...
-├── hooks/                # Custom React hooks
-├── lib/                  # Utility functions and configs
+├── components/           # React components
+│   ├── chat/             # AI interface
+│   ├── editor/           # Monaco wrapper
+│   └── ui/               # shadcn components
+├── hooks/                # Custom hooks
+├── lib/                  # Utilities
+│   ├── lars-agent/       # AI logic
+│   ├── storage/          # Storage adapter
+│   └── supabase/         # Supabase clients
 ├── actions/              # Server actions
-├── supabase/             # Database migrations
-└── types/                # TypeScript type definitions
+├── stores/               # State management
+├── agent_server/         # AI agent service
+├── deployment/           # Deployment configs
+│   ├── docker-compose.vm.yml
+│   ├── scripts/
+│   └── README.md
+└── report-templates/     # LaTeX templates
 ```
 
-## Available Scripts
+<!-- ## Storage Architecture
 
-- `npm run dev` - Start development server with Turbopack
-- `npm run build` - Build for production
-- `npm start` - Start production server
-- `npm run lint` - Run ESLint
+The app supports two storage modes via environment variable:
 
-## Key Features
+**Development (Supabase Storage)**
 
-- 🤖 **AI-Powered Editing** - Intelligent LaTeX suggestions with smart GPT-5 model selection (mini for speed, full for complex tasks)
-- 📝 **Monaco Editor** - Advanced code editing with syntax highlighting
-- 📄 **Real-time PDF Compilation** - Instant preview of your LaTeX documents
-- 👥 **Authentication** - Secure user auth via Supabase
-- **Usage Tracking** - Monitor API usage and limits
+- Files in Supabase Storage buckets
+- Automatic URLs and access control
+- Default for local dev
 
-## Troubleshooting
+**Production (Database Storage)**
 
-### Docker Issues
+- Files as base64 in PostgreSQL
+- No external dependencies
+- Enable with: `NEXT_PUBLIC_USE_DATABASE_STORAGE=true`
 
-- **Docker is optional** - the app will automatically use the remote service if Docker is unavailable
-- If you want to use Docker locally:
-  - Ensure Docker Desktop is running
-  - Check Docker has sufficient resources allocated (Settings > Resources)
-  - Verify the `tmp/` directory can be created in the project root
-- If compilation fails, check the browser console for error details
+The storage adapter automatically handles both modes.
 
-### Database Connection
+## Deployment
 
-- Verify Supabase credentials in `.env.local`
-- Check if migrations have been run
-- Ensure your IP is allowed in Supabase project settings
+### CERN OpenShift (OKD)
 
-### API Keys
+For production deployment to CERN infrastructure with SSO:
 
-- Ensure all required API keys are set in `.env.local`
-- Check API key permissions and quotas
-- Verify keys are not expired
+**→ See [Deployment Guide](./deployment/README.md)**
 
-## Learn More
+Includes:
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Supabase Documentation](https://supabase.com/docs)
-- [Monaco Editor](https://microsoft.github.io/monaco-editor/)
+- OpenShift frontend deployment
+- VM backend setup (PostgreSQL, Auth, LaTeX)
+- CERN SSO integration
+- Complete configuration -->
 
-## Deploy on Vercel
+## Configuration
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme).
+### Adding Templates
 
-Make sure to set all environment variables in your Vercel project settings.
+1. Create folder: `report-templates/my-template/`
+2. Add `config.ts` with metadata
+3. Add LaTeX files
+4. Register in `lib/templates.ts`
 
-Check out the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [Template Guide](./report-templates/README.md)
 
-## License
+## Acknowledgments
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- [octree](https://github.com/octree-labs/octree)
+
+## Other Guides
+
+- 📖 [Database Setup Guide](./DATABASE_SETUP.md)
+- 🚀 [Deployment Guide](./deployment/README.md)
