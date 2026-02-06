@@ -56,9 +56,6 @@ export function SuggestionActions({
                 <span className="ml-2 text-xs text-red-600">(DELETE)</span>
               )}
             </div>
-            <div className="rounded bg-gray-100 px-2 py-1 text-xs text-gray-500">
-              AI Suggestion
-            </div>
           </div>
 
           <DiffViewer
