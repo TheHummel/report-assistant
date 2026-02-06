@@ -528,8 +528,8 @@ export function Chat({
       role: 'assistant',
       content:
         startIndex === 0
-          ? `Hi! I'll help you initialize your radiation test report. Let's start by gathering some essential information.\\n\\n${firstQuestion.question}`
-          : `Let's continue gathering information for your report.\\n\\n${firstQuestion.question}`,
+          ? `Hi! I'll help you initialize your radiation test report. Let's start by gathering some essential information.\n\n${firstQuestion.question}`
+          : `Let's continue gathering information for your report.\n\n${firstQuestion.question}`,
     };
 
     setMessages([welcomeMsg]);
